@@ -35,7 +35,7 @@ import {
   withdrawRideRequest,
 } from './lib/rideRequests';
 import { DEFAULT_RIDE_FILTERS, filterAndSortRides } from './lib/rideFilters';
-import { isMessagingEnabled, listRideConversations, openRideConversation } from './lib/messaging';
+import { isMessagingEnabled, listRideConversationPreviews, openRideConversation } from './lib/messaging';
 import {
   RIDE_CLOCK_INTERVAL_MS,
   isRideDeparted,
@@ -590,7 +590,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, profileLoadAttempt, loadBoard]);
 
-  // Loads the Messages list (list_my_ride_conversations). Does nothing when
+  // Loads the Messages list with previews (list_my_ride_conversation_previews,
+  // falling back to list_my_ride_conversations). Does nothing when
   // messaging is off or nobody is signed in.
   const loadConversations = useCallback(async () => {
     const userId = currentUserIdRef.current;
@@ -599,7 +600,7 @@ export default function App() {
     }
     conversationsLoadRef.current += 1;
     const attempt = conversationsLoadRef.current;
-    const result = await listRideConversations();
+    const result = await listRideConversationPreviews();
     // Skip a late answer: someone else signed in (or out), or a newer load
     // started meanwhile.
     if (currentUserIdRef.current !== userId || conversationsLoadRef.current !== attempt) {

@@ -11,6 +11,7 @@ import Notice from '../components/Notice';
 import ScreenHeader from '../components/ScreenHeader';
 import SectionHeader from '../components/SectionHeader';
 import StarRating from '../components/StarRating';
+import { getConversationPreview, getConversationTimeLabel } from '../lib/conversationPreview';
 import { formatDeparture } from '../lib/format';
 import { getReviewEligibility } from '../lib/reviews';
 import {
@@ -50,6 +51,8 @@ import { colors, createThemedStyles, gutter, radius, spacing, typography } from 
 //   gone, or the 2-hour window has passed. Whether a chat is read-only is
 //   the server's `canSend`, never worked out here. No count badge: nothing
 //   tracks unread messages, so a number would mislead.
+//   Prototype 10: each row also shows the newest message's time, a one-line
+//   preview of it (or "No messages yet"), and the ride (see ConversationRow).
 // * A Message button on each confirmed request (Rider mode) and each
 //   confirmed passenger (Driver mode), never on pending, denied or
 //   cancelled ones, until 2 hours after departure, including on Past-ride
@@ -146,6 +149,7 @@ export default function RequestsScreen({
           <ConversationRow
             key={conversation.id}
             conversation={conversation}
+            nowMs={nowMs}
             onPress={() => onOpenConversation?.(conversation.id)}
           />
         ))}
@@ -632,7 +636,12 @@ const READ_ONLY_REASONS = {
 // from App.js; without it, their role stands in. Read-only is the server's
 // can_send being false (e.g. an archived chat); the row says why, from the
 // server's state, and still opens.
-function ConversationRow({ conversation, onPress }) {
+//
+// Prototype 10 previews (lib/conversationPreview.js): the newest message's
+// time beside the name, then one line with the newest message ("You: " when
+// it's mine), cut off with "…", or "No messages yet". When the server has
+// no preview function (lastMessage undefined) that line is left out.
+function ConversationRow({ conversation, onPress, nowMs }) {
   const otherRole = conversation.myRole === 'driver' ? 'rider' : 'driver';
   const name =
     conversation.otherPersonName || (otherRole === 'rider' ? 'Your rider' : 'Your driver');
@@ -642,25 +651,54 @@ function ConversationRow({ conversation, onPress }) {
   const rideLine = `Ride to ${conversation.rideDestination}${
     departure ? ` · ${formatDeparture(departure)}` : ''
   }`;
+  const preview = getConversationPreview(conversation);
+  const timeLabel = getConversationTimeLabel(conversation, nowMs ?? Date.now());
+
+  let previewLabel = '';
+  if (preview?.kind === 'message') {
+    previewLabel = `, last message${preview.mine ? ' from you' : ''}: ${
+      preview.mine ? preview.text.replace(/^You: /, '') : preview.text
+    }${timeLabel ? `, ${timeLabel}` : ''}`;
+  } else if (preview?.kind === 'empty') {
+    previewLabel = ', no messages yet';
+  }
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Conversation with ${name}, ${rideLine}${
+      accessibilityLabel={`Conversation with ${name}, ${rideLine}${previewLabel}${
         isReadOnly ? `, read-only: ${readOnlyReason.toLowerCase()}` : ''
       }`}
       style={({ pressed }) => [styles.conversationRow, pressed && styles.conversationRowPressed]}
     >
       <Avatar name={name} role={otherRole} uri={conversation.otherPersonAvatarUrl} size={40} />
       <View style={styles.personText}>
-        <Text style={styles.personName} numberOfLines={1}>
-          {name}
-        </Text>
+        <View style={styles.conversationTopLine}>
+          <Text style={[styles.personName, styles.flex]} numberOfLines={1}>
+            {name}
+          </Text>
+          {timeLabel !== '' ? (
+            <Text testID="conversation-time" style={styles.conversationTime} numberOfLines={1}>
+              {timeLabel}
+            </Text>
+          ) : null}
+        </View>
+        {preview ? (
+          <Text
+            testID="conversation-preview"
+            style={preview.kind === 'empty' ? styles.conversationPreviewEmpty : styles.conversationPreview}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {preview.text}
+          </Text>
+        ) : null}
         <Text style={styles.personSub} numberOfLines={1}>
           {rideLine}
         </Text>
+        {isReadOnly ? <Badge label={readOnlyReason} tone="muted" style={styles.inlineBadge} /> : null}
       </View>
-      {isReadOnly ? <Badge label={readOnlyReason} tone="muted" /> : null}
       <Ionicons name="chevron-forward" size={18} color={colors.textFaint} style={styles.chevron} />
     </Pressable>
   );
@@ -907,6 +945,28 @@ const styles = createThemedStyles(() => ({
   },
   conversationRowPressed: {
     backgroundColor: colors.surfaceRaised,
+  },
+  conversationTopLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  conversationTime: {
+    ...typography.caption,
+    color: colors.textFaint,
+    marginLeft: spacing.sm,
+  },
+  conversationPreview: {
+    ...typography.label,
+    fontWeight: '400',
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  conversationPreviewEmpty: {
+    ...typography.label,
+    fontWeight: '400',
+    fontStyle: 'italic',
+    color: colors.textFaint,
+    marginTop: 2,
   },
   chevron: {
     marginLeft: spacing.xs,
