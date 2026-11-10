@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Supabase local files
+supabase/.temp/
+supabase/.branches/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Local backups
+*Backups/
+*.dump
+
+# Prototype 10 additions: credentials, keys and backups
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+credentials.json
+google-services.json
+GoogleService-Info.plist
+supabase/.env
+*.backup
+*.bak
+*.sql.gz
+backup*.sql
+*-backup.sql
