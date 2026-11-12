@@ -15,9 +15,7 @@ export default function FormSection({ title, icon, tint = colors.primary, right,
               <Ionicons name={icon} size={15} color={tint} />
             </View>
           ) : null}
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+          <Text style={styles.title}>{title}</Text>
           {right ? <View style={styles.right}>{right}</View> : null}
         </View>
       ) : null}

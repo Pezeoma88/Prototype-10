@@ -10,15 +10,9 @@ export default function SectionHeader({ title, subtitle, role, right, style }) {
       <View style={styles.textGroup}>
         <View style={styles.titleRow}>
           {role ? <View style={[styles.dot, { backgroundColor: roleColor(role) }]} /> : null}
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
+          <Text style={styles.title}>{title}</Text>
         </View>
-        {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={2}>
-            {subtitle}
-          </Text>
-        ) : null}
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {right ? <View style={styles.right}>{right}</View> : null}
     </View>

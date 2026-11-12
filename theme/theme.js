@@ -189,6 +189,12 @@ export const radius = {
   pill: 999,
 };
 
+// The largest text-size multiplier for small fixed-size chrome (tab bar
+// labels, count dots). Everything else scales with the phone's text size
+// setting without a cap; these sit in fixed-width or fixed-height spaces, so
+// past this they'd overlap their neighbors instead of becoming readable.
+export const MAX_CHROME_FONT_SCALE = 1.5;
+
 export const typography = {
   caption: { fontSize: 12, fontWeight: '500' },
   label: { fontSize: 13, fontWeight: '600' },

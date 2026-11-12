@@ -194,7 +194,7 @@ function SuggestionRow({ label, icon, isSelected, onPress }) {
         size={17}
         color={isSelected ? colors.primary : colors.textMuted}
       />
-      <Text style={[styles.rowText, isSelected && styles.rowTextSelected]} numberOfLines={1}>
+      <Text style={[styles.rowText, isSelected && styles.rowTextSelected]}>
         {label}
       </Text>
       {isSelected && <Ionicons name="checkmark" size={18} color={colors.primary} />}
@@ -261,6 +261,8 @@ const styles = createThemedStyles(() => ({
     alignItems: 'center',
     gap: 10,
     minHeight: 46,
+    // Long place names wrap onto a second line.
+    paddingVertical: spacing.sm,
     paddingHorizontal: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,

@@ -6,6 +6,7 @@ import { colors, createThemedStyles, spacing, typography } from '../theme/theme'
 //
 // A ride's pickup spot is optional, so `pickup` is too: without it only the
 // destination stop is drawn, labeled "Going to". Nothing is invented.
+// Place names are shown in full, wrapping onto more lines if needed.
 export default function RouteLine({ pickup, destination, tint = colors.primary, compact = false }) {
   const stopStyle = compact ? styles.stopTextCompact : styles.stopText;
 
@@ -17,7 +18,7 @@ export default function RouteLine({ pickup, destination, tint = colors.primary, 
         </View>
         <View style={styles.textCol}>
           <Text style={styles.caption}>Going to</Text>
-          <Text style={stopStyle} numberOfLines={2}>
+          <Text style={stopStyle}>
             {destination}
           </Text>
         </View>
@@ -34,7 +35,7 @@ export default function RouteLine({ pickup, destination, tint = colors.primary, 
         </View>
         <View style={[styles.textCol, styles.firstStop]}>
           <Text style={styles.caption}>Pickup</Text>
-          <Text style={stopStyle} numberOfLines={1}>
+          <Text style={stopStyle}>
             {pickup}
           </Text>
         </View>
@@ -45,7 +46,7 @@ export default function RouteLine({ pickup, destination, tint = colors.primary, 
         </View>
         <View style={styles.textCol}>
           <Text style={styles.caption}>Destination</Text>
-          <Text style={stopStyle} numberOfLines={2}>
+          <Text style={stopStyle}>
             {destination}
           </Text>
         </View>

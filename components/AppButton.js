@@ -59,9 +59,8 @@ export default function AppButton({
         ) : icon ? (
           <Ionicons name={icon} size={size === 'sm' ? 15 : 18} color={textColor} style={styles.icon} />
         ) : null}
-        <Text style={[styles.text, size === 'sm' && styles.textSmall, { color: textColor }]} numberOfLines={1}>
-          {title}
-        </Text>
+        {/* Wraps instead of cutting off, for long titles and large text. */}
+        <Text style={[styles.text, size === 'sm' && styles.textSmall, { color: textColor }]}>{title}</Text>
       </View>
     </Pressable>
   );
@@ -88,6 +87,10 @@ const styles = createThemedStyles(() => ({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    // Lets the title wrap within the button instead of overflowing it.
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   icon: {
     marginRight: spacing.sm,
@@ -95,6 +98,8 @@ const styles = createThemedStyles(() => ({
   text: {
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   textSmall: {
     fontSize: 14,

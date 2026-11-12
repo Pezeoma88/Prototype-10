@@ -2219,7 +2219,10 @@ export default function App() {
     );
   }
 
-  if (currentUser === null || isRecoveringPassword) {
+  // No session means the sign-in screen, even for the moment before the
+  // sign-out clears currentUser (e.g. right after a password reset, whose
+  // recovery session loaded the profile), so the app never flashes open.
+  if (authUser === null || currentUser === null || isRecoveringPassword) {
     return (
       <SafeAreaProvider>
         <SignInScreen

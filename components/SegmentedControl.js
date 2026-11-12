@@ -21,9 +21,8 @@ export default function SegmentedControl({ options, value, onChange, tint = colo
               pressed && !isActive && styles.pressed,
             ]}
           >
-            <Text style={[styles.text, isActive && { color: tint }]} numberOfLines={1}>
-              {option.label}
-            </Text>
+            {/* Wraps onto a second line with large text instead of cutting off. */}
+            <Text style={[styles.text, isActive && { color: tint }]}>{option.label}</Text>
           </Pressable>
         );
       })}
@@ -44,6 +43,7 @@ const styles = createThemedStyles(() => ({
     paddingVertical: 7,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   segmentActive: {
     backgroundColor: colors.surface,
@@ -57,5 +57,6 @@ const styles = createThemedStyles(() => ({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textMuted,
+    textAlign: 'center',
   },
 }));

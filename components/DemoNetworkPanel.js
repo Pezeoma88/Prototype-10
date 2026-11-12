@@ -98,7 +98,7 @@ export function DemoNetworkBanner() {
       style={styles.banner}
     >
       <Ionicons name="construct" size={14} color={colors.textOnAccent} />
-      <Text style={styles.bannerText} numberOfLines={1}>
+      <Text style={styles.bannerText}>
         DEMO NETWORK · {option.label} · tap to turn off
       </Text>
     </Pressable>
@@ -176,6 +176,8 @@ const styles = createThemedStyles(() => ({
     ...typography.caption,
     fontWeight: '700',
     color: colors.textOnAccent,
+    flexShrink: 1,
+    textAlign: 'center',
     marginLeft: 6,
   },
 }));

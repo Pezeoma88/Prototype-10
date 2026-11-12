@@ -21,9 +21,7 @@ export default function Badge({ label, tone = 'muted', style }) {
   const t = tones[tone] || tones.muted;
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }, style]}>
-      <Text style={[styles.text, { color: t.text }]} numberOfLines={1}>
-        {label}
-      </Text>
+      <Text style={[styles.text, { color: t.text }]}>{label}</Text>
     </View>
   );
 }
@@ -31,6 +29,10 @@ export default function Badge({ label, tone = 'muted', style }) {
 const styles = createThemedStyles(() => ({
   badge: {
     alignSelf: 'flex-start',
+    // In a row, a long label (or large text) wraps inside the pill rather
+    // than pushing past the edge of the card.
+    flexShrink: 1,
+    maxWidth: '100%',
     borderRadius: radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -39,5 +41,6 @@ const styles = createThemedStyles(() => ({
     fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: 0.3,
+    textAlign: 'center',
   },
 }));

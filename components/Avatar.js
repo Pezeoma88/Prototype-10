@@ -22,7 +22,10 @@ export default function Avatar({ name, role = 'driver', uri, size = 44, ring = f
     />
   ) : (
     <View style={[circle, styles.fallback, { backgroundColor: roleColor(role) }]}>
-      <Text style={[styles.initial, { fontSize: Math.round(size * 0.4) }]}>{getInitial(name)}</Text>
+      {/* Sized to the circle, not the text setting, so it never spills out. */}
+      <Text style={[styles.initial, { fontSize: Math.round(size * 0.4) }]} allowFontScaling={false}>
+        {getInitial(name)}
+      </Text>
     </View>
   );
 

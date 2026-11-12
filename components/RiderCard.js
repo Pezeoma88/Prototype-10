@@ -4,6 +4,7 @@ import Card from './Card';
 import Avatar from './Avatar';
 import Badge from './Badge';
 import AppButton from './AppButton';
+import { useLargeText } from '../lib/useLargeText';
 import { colors, createThemedStyles, spacing, typography } from '../theme/theme';
 
 // Riders Looking for a Ride card (a Rider's REQUEST for transportation, not
@@ -12,25 +13,27 @@ import { colors, createThemedStyles, spacing, typography } from '../theme/theme'
 //
 // Riders can't post a destination/time yet (that's the ride-needs phase), so
 // the card says so instead of inventing route details.
+// Long names wrap; with large text the badge moves under the name.
 export default function RiderCard({ rider, isSelf, onRemove }) {
+  const isLarge = useLargeText();
+  const badge = <Badge label="Needs a ride" tone="rider" />;
   return (
     <Card style={styles.card}>
       <View style={styles.stripe} />
       <View style={styles.topRow}>
         <Avatar name={rider.name} role="rider" uri={rider.avatarUrl} size={44} />
         <View style={styles.nameCol}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={styles.name}>
             {rider.name}
             {isSelf ? <Text style={styles.you}>  (You)</Text> : null}
           </Text>
           <View style={styles.subRow}>
             <Ionicons name="walk" size={13} color={colors.rider} />
-            <Text style={styles.subText} numberOfLines={1}>
-              Rider · looking for transportation
-            </Text>
+            <Text style={styles.subText}>Rider · looking for transportation</Text>
           </View>
+          {isLarge ? <View style={styles.badgeStacked}>{badge}</View> : null}
         </View>
-        <Badge label="Needs a ride" tone="rider" />
+        {isLarge ? null : badge}
       </View>
 
       <View style={styles.needRow}>
@@ -83,6 +86,9 @@ const styles = createThemedStyles(() => ({
   you: {
     ...typography.label,
     color: colors.textMuted,
+  },
+  badgeStacked: {
+    marginTop: spacing.sm,
   },
   subRow: {
     flexDirection: 'row',

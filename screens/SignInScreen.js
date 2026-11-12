@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Keyboard,
@@ -16,6 +16,7 @@ import AppButton from '../components/AppButton';
 import Card from '../components/Card';
 import Notice from '../components/Notice';
 import PasswordField from '../components/PasswordField';
+import ResetEmailStatus from '../components/ResetEmailStatus';
 import TextField from '../components/TextField';
 import {
   USERNAME_MAX_LENGTH,
@@ -35,6 +36,13 @@ import {
   verifySignUpCode,
 } from '../lib/auth';
 import { normalizeEmail } from '../lib/format';
+import {
+  EMAIL_CODE_LENGTH,
+  RESEND_INTERVAL_SECONDS,
+  describeRejectedResetCode,
+  describeResendWait,
+  secondsUntil,
+} from '../lib/passwordRecovery';
 import { colors, createThemedStyles, gutter, radius, roleColor, roleSoftColor, spacing, statusBarStyle, typography } from '../theme/theme';
 
 const ROLE_OPTIONS = [
@@ -49,15 +57,18 @@ const STEP_TITLES = {
   confirm: { title: 'Confirm your email', subtitle: 'Enter the email you signed up with to get a new code.' },
   forgot: { title: 'Reset your password', subtitle: 'We’ll email you a code to choose a new password.' },
   reset: { title: 'Choose a new password', subtitle: 'Enter the code from the email and your new password.' },
+  resetDone: { title: 'Password changed', subtitle: 'Your new password is saved.' },
 };
+
+const SECOND = 1000;
 
 // Sign-in / sign-up screen for Supabase Auth accounts (lib/auth.js).
 //
 // Steps: signIn (username + password), signUp (username, email, password,
 // confirm), verify (emailed code that confirms a new account's email),
 // confirm (email for a new sign-up code, for someone who left verify
-// before confirming), forgot (email for a reset code) and reset (code +
-// new password). Form
+// before confirming), forgot (email for a reset code), reset (code +
+// new password) and resetDone (confirmation, then back to sign in). Form
 // state lives here; App.js only learns about the result through Supabase's
 // auth state (a session appears) and these callbacks:
 //   markNewAccount(bool)      whether the session about to appear is a
@@ -89,6 +100,15 @@ export default function SignInScreen({
   // Set once a reset code has been accepted, so a retry after e.g. a
   // too-weak password doesn't try to use the (now spent) code again.
   const [isRecoveryVerified, setIsRecoveryVerified] = useState(false);
+  // The latest reset email: { email, sentAtMs, cooldownUntilMs }. sentAtMs
+  // is null when we don't know (rate-limited, or "I already have a code").
+  // Kept across steps so going back and forth can't skip the provider's
+  // wait between emails.
+  const [resetRequest, setResetRequest] = useState(null);
+  const [isResendingCode, setIsResendingCode] = useState(false);
+  // Blocks a second submit before the isBusy re-render lands (two quick
+  // taps arrive in the same render).
+  const inFlightRef = useRef(false);
 
   function goTo(nextStep, info = '') {
     Keyboard.dismiss();
@@ -103,13 +123,15 @@ export default function SignInScreen({
 
   // Runs a submit handler once at a time, with the keyboard closed.
   async function run(handler) {
-    if (isBusy) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     Keyboard.dismiss();
     setFormError('');
     setIsBusy(true);
     try {
       await handler();
     } finally {
+      inFlightRef.current = false;
       setIsBusy(false);
     }
   }
@@ -236,22 +258,104 @@ export default function SignInScreen({
     goTo('verify', `Enter the most recent code sent to ${address}.`);
   }
 
+  // Remembers a reset email that was just sent (or refused by the rate
+  // limit) so the countdown matches the provider's wait between emails.
+  function recordResetSent(address) {
+    const nowMs = Date.now();
+    setResetRequest({ email: address, sentAtMs: nowMs, cooldownUntilMs: nowMs + RESEND_INTERVAL_SECONDS * SECOND });
+  }
+
+  function recordResetRateLimited(address, retryAfterSeconds) {
+    const nowMs = Date.now();
+    setResetRequest((current) => ({
+      email: address,
+      // A code sent earlier to this address may still be on its way.
+      sentAtMs: current?.email === address ? current.sentAtMs : null,
+      cooldownUntilMs: nowMs + retryAfterSeconds * SECOND,
+    }));
+  }
+
+  // From the forgot step: emails a reset code, then shows the code field.
   function handleRequestReset() {
     const emailProblem = getEmailProblem(email);
     setFieldErrors(emailProblem ? { email: emailProblem } : {});
     if (emailProblem) return;
 
+    const address = normalizeEmail(email);
+    // A code for this address was requested moments ago: don't send a
+    // duplicate. Go to the code field if one is on its way.
+    const waitSeconds = resetRequest?.email === address ? secondsUntil(resetRequest.cooldownUntilMs, Date.now()) : 0;
+    if (waitSeconds > 0) {
+      if (resetRequest.sentAtMs !== null) {
+        setEmail(address);
+        setIsRecoveryVerified(false);
+        goTo('reset');
+      } else {
+        setFormError(describeResendWait(waitSeconds));
+      }
+      return;
+    }
+
     run(async () => {
-      const result = await requestPasswordReset(email);
+      const result = await requestPasswordReset(address);
+      if (result.kind === 'rate_limited') {
+        recordResetRateLimited(address, result.retryAfterSeconds);
+        setFormError(result.message);
+        return;
+      }
       if (result.kind === 'error') {
         setFormError(result.message);
         return;
       }
+      recordResetSent(address);
+      setEmail(address);
       setIsRecoveryVerified(false);
-      goTo(
-        'reset',
-        `If an account uses ${normalizeEmail(email)}, we sent it a code. It may take a minute to arrive.`
-      );
+      goTo('reset');
+    });
+  }
+
+  // From the forgot step, for a code that's already in the inbox (e.g.
+  // the app was closed while waiting for the email).
+  function handleHaveResetCode() {
+    const emailProblem = getEmailProblem(email);
+    setFieldErrors(emailProblem ? { email: emailProblem } : {});
+    if (emailProblem) return;
+
+    const address = normalizeEmail(email);
+    if (resetRequest?.email !== address) {
+      setResetRequest({ email: address, sentAtMs: null, cooldownUntilMs: null });
+    }
+    setEmail(address);
+    setIsRecoveryVerified(false);
+    goTo('reset');
+  }
+
+  // From the reset step: emails another code. The new passwords stay as
+  // typed; only the old code is cleared, because the new email replaces it.
+  function handleResendResetCode() {
+    if (resetRequest && secondsUntil(resetRequest.cooldownUntilMs, Date.now()) > 0) return;
+    const address = email;
+    setFormInfo('');
+    run(async () => {
+      setIsResendingCode(true);
+      try {
+        const result = await requestPasswordReset(address);
+        if (result.kind === 'rate_limited') {
+          recordResetRateLimited(address, result.retryAfterSeconds);
+          setFormError(result.message);
+          return;
+        }
+        if (result.kind === 'error') {
+          setFormError(result.message);
+          return;
+        }
+        recordResetSent(address);
+        setCode('');
+        setFieldErrors(({ code: _spentCode, ...rest }) => rest);
+        setFormInfo('A new code is on its way. Only the newest code works, so use the one from the latest email.');
+      } finally {
+        setIsResendingCode(false);
+      }
     });
   }
 
@@ -276,7 +380,11 @@ export default function SignInScreen({
         const verified = await verifyRecoveryCode({ email, code });
         if (verified.kind === 'error') {
           setIsRecoveringPassword(false);
-          setFormError(verified.message);
+          if (verified.reason === 'code_rejected') {
+            setFieldErrors({ code: describeRejectedResetCode(resetRequest, Date.now()) });
+          } else {
+            setFormError(verified.message);
+          }
           return;
         }
         setIsRecoveryVerified(true);
@@ -286,9 +394,19 @@ export default function SignInScreen({
         setFormError(updated.message);
         return;
       }
-      // Signed in with the new password: App now opens CarpoolBoard.
+      // Saved. End the recovery session and have the person sign in with
+      // the new password, which also proves it works (and lets the phone
+      // offer to save it).
+      await signOut();
+      setIsRecoveryVerified(false);
+      setResetRequest(null);
+      goTo('resetDone');
       setIsRecoveringPassword(false);
     });
+  }
+
+  function handleFinishReset() {
+    goTo('signIn', 'Sign in with your username and new password.');
   }
 
   // Leaving a reset half-way ends its recovery session.
@@ -367,16 +485,40 @@ export default function SignInScreen({
                 <TextField
                   label="Code from the email"
                   icon="keypad-outline"
-                  placeholder="6-digit code"
+                  placeholder={`${EMAIL_CODE_LENGTH}-digit code`}
                   value={code}
-                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, ''))}
+                  // Pasted codes may include spaces ("123 456").
+                  onChangeText={(text) => setCode(text.replace(/[^0-9]/g, '').slice(0, EMAIL_CODE_LENGTH))}
                   error={fieldErrors.code}
                   keyboardType="number-pad"
                   textContentType="oneTimeCode"
                   autoComplete="one-time-code"
-                  maxLength={10}
+                  maxLength={EMAIL_CODE_LENGTH + 6}
                   returnKeyType="done"
                 />
+              )}
+
+              {step === 'reset' && !isRecoveryVerified && (
+                <>
+                  <ResetEmailStatus
+                    email={email}
+                    request={resetRequest?.email === email ? resetRequest : null}
+                    onResend={handleResendResetCode}
+                    isSending={isResendingCode}
+                    disabled={isBusy}
+                  />
+                  <Pressable
+                    onPress={() => goTo('forgot')}
+                    accessibilityRole="button"
+                    disabled={isBusy}
+                    hitSlop={8}
+                    style={({ pressed }) => [styles.changeEmail, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.footerText}>
+                      Wrong email? <Text style={styles.link}>Use a different one</Text>
+                    </Text>
+                  </Pressable>
+                </>
               )}
 
               {(step === 'signIn' || step === 'signUp' || step === 'reset') && (
@@ -512,31 +654,42 @@ export default function SignInScreen({
                 </>
               )}
               {step === 'forgot' && (
-                <AppButton
-                  title={isBusy ? 'Sending…' : 'Email Me a Code'}
-                  icon={isBusy ? undefined : 'mail-outline'}
-                  onPress={handleRequestReset}
-                  loading={isBusy}
-                />
+                <>
+                  <AppButton
+                    title={isBusy ? 'Sending…' : 'Email Me a Code'}
+                    icon={isBusy ? undefined : 'mail-outline'}
+                    onPress={handleRequestReset}
+                    loading={isBusy}
+                  />
+                  <AppButton
+                    title="I already have a code"
+                    variant="secondary"
+                    icon="keypad-outline"
+                    onPress={handleHaveResetCode}
+                    disabled={isBusy}
+                    style={styles.secondaryButton}
+                  />
+                </>
               )}
               {step === 'reset' && (
                 <>
                   <AppButton
-                    title={isBusy ? 'Saving…' : 'Save New Password'}
-                    icon={isBusy ? undefined : 'key-outline'}
+                    title={isBusy && !isResendingCode ? 'Saving…' : 'Save New Password'}
+                    icon={isBusy && !isResendingCode ? undefined : 'key-outline'}
                     onPress={handleResetPassword}
-                    loading={isBusy}
+                    loading={isBusy && !isResendingCode}
+                    disabled={isBusy}
                   />
-                  {!isRecoveryVerified && (
-                    <AppButton
-                      title="Send a new code"
-                      variant="secondary"
-                      icon="refresh-outline"
-                      onPress={handleRequestReset}
-                      disabled={isBusy}
-                      style={styles.secondaryButton}
-                    />
-                  )}
+                </>
+              )}
+              {step === 'resetDone' && (
+                <>
+                  <Notice
+                    message="Your password was changed. For your security, please sign in again with your username and new password."
+                    tone="success"
+                    style={styles.notice}
+                  />
+                  <AppButton title="Sign In" icon="log-in-outline" onPress={handleFinishReset} />
                 </>
               )}
             </Card>
@@ -566,7 +719,7 @@ export default function SignInScreen({
                     Already have an account? <Text style={styles.link}>Sign in</Text>
                   </Text>
                 </Pressable>
-              ) : (
+              ) : step === 'resetDone' ? null : (
                 <Pressable
                   onPress={step === 'reset' ? handleCancelReset : () => goTo('signIn')}
                   accessibilityRole="button"
@@ -683,6 +836,11 @@ const styles = createThemedStyles(() => ({
   },
   secondaryButton: {
     marginTop: spacing.md,
+  },
+  changeEmail: {
+    alignSelf: 'center',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
   },
   footer: {
     alignItems: 'center',

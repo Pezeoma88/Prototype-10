@@ -41,9 +41,7 @@ export default function ModeToggle({ activeMode, onChange, style }) {
               size={18}
               color={isActive ? tint : colors.textMuted}
             />
-            <Text style={[styles.label, isActive && { color: tint }]} numberOfLines={1}>
-              {mode.label}
-            </Text>
+            <Text style={[styles.label, isActive && { color: tint }]}>{mode.label}</Text>
           </Pressable>
         );
       })}
@@ -66,6 +64,7 @@ const styles = createThemedStyles(() => ({
     justifyContent: 'center',
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   segmentActive: {
     backgroundColor: colors.surface,
@@ -79,5 +78,7 @@ const styles = createThemedStyles(() => ({
     ...typography.bodyStrong,
     color: colors.textMuted,
     marginLeft: spacing.sm,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 }));

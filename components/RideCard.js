@@ -7,6 +7,7 @@ import AppButton from './AppButton';
 import RatingSummary from './RatingSummary';
 import RouteLine from './RouteLine';
 import { formatTimeUntil, getPastRideLabel, isRideDeparted } from '../lib/rideStatus';
+import { useLargeText } from '../lib/useLargeText';
 import { colors, createThemedStyles, radius, spacing, typography } from '../theme/theme';
 
 // Full-width ride card (a Driver's OFFER). `ride` is one entry of App's
@@ -25,6 +26,9 @@ import { colors, createThemedStyles, radius, spacing, typography } from '../them
 // A ride with a pickup spot shows it above the destination; without one,
 // RouteLine shows the destination only. The driver's average rating and
 // review count sit under their name (ride.driverRating).
+// Names, times, and places wrap instead of being cut off. With large text
+// (lib/useLargeText.js) the seat badge moves under the driver's name and
+// the action buttons stack, so nothing has to squeeze onto one line.
 export default function RideCard({ ride, currentUser, activeMode, myRequestStatus, nowMs, onView, onRequest }) {
   const isOwn = ride.driverAccountId === currentUser.id;
   const isFull = ride.seats === 0;
@@ -33,28 +37,31 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
   const alreadyConfirmed = ride.matchedRiders.some((r) => r.id === currentUser.id);
   const alreadyPending = ride.pendingRequests.some((req) => req.riderId === currentUser.id);
   const timeUntil = formatTimeUntil(ride, nowMs);
+  const isLarge = useLargeText();
+  // Side by side normally; full width, one per line, with large text.
+  const actionStyle = isLarge ? styles.actionStacked : styles.flex;
 
   let primaryAction = null;
   if (isPast) {
     if (alreadyConfirmed) {
-      primaryAction = <StatusPill icon="checkmark-circle" label="You rode along" color={colors.success} />;
+      primaryAction = <StatusPill icon="checkmark-circle" label="You rode along" color={colors.success} style={actionStyle} />;
     } else if (isOwn) {
-      primaryAction = <StatusPill icon="car-sport" label="You drove" color={colors.driver} />;
+      primaryAction = <StatusPill icon="car-sport" label="You drove" color={colors.driver} style={actionStyle} />;
     }
   } else if (isOwn && !isRider) {
-    primaryAction = <AppButton title="Manage Ride" icon="settings-outline" size="sm" onPress={onView} style={styles.flex} />;
+    primaryAction = <AppButton title="Manage Ride" icon="settings-outline" size="sm" onPress={onView} style={actionStyle} />;
   } else if (isOwn) {
     // Driver controls stay in Driver mode; Details offers the switch.
-    primaryAction = <StatusPill icon="car-sport" label="Your ride" color={colors.driver} />;
+    primaryAction = <StatusPill icon="car-sport" label="Your ride" color={colors.driver} style={actionStyle} />;
   } else if (isRider) {
     if (alreadyConfirmed) {
-      primaryAction = <StatusPill icon="checkmark-circle" label="Seat confirmed" color={colors.success} />;
+      primaryAction = <StatusPill icon="checkmark-circle" label="Seat confirmed" color={colors.success} style={actionStyle} />;
     } else if (alreadyPending) {
-      primaryAction = <StatusPill icon="time" label="Request pending" color={colors.pending} />;
+      primaryAction = <StatusPill icon="time" label="Request pending" color={colors.pending} style={actionStyle} />;
     } else if (myRequestStatus === 'denied') {
-      primaryAction = <StatusPill icon="close-circle" label="Request denied" color={colors.danger} />;
+      primaryAction = <StatusPill icon="close-circle" label="Request denied" color={colors.danger} style={actionStyle} />;
     } else if (myRequestStatus === 'cancelled') {
-      primaryAction = <StatusPill icon="close-circle" label="Request cancelled" color={colors.textMuted} />;
+      primaryAction = <StatusPill icon="close-circle" label="Request cancelled" color={colors.textMuted} style={actionStyle} />;
     } else {
       primaryAction = (
         <AppButton
@@ -63,7 +70,7 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
           size="sm"
           disabled={isFull}
           onPress={onRequest}
-          style={styles.flex}
+          style={actionStyle}
         />
       );
     }
@@ -81,14 +88,12 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
   return (
     <Card onPress={onView} style={[styles.card, isPast && styles.cardPast]}>
       {/* When */}
-      <View style={styles.whenRow}>
+      <View style={[styles.whenRow, isLarge && styles.whenRowStacked]}>
         <View style={styles.timeChip}>
           <Ionicons name="calendar-clear-outline" size={14} color={isPast ? colors.textMuted : colors.primary} />
-          <Text style={[styles.timeText, isPast && styles.timeTextPast]} numberOfLines={1}>
-            {ride.departureTime}
-          </Text>
+          <Text style={[styles.timeText, isPast && styles.timeTextPast]}>{ride.departureTime}</Text>
         </View>
-        {timeUntil ? <Text style={styles.timeUntil}>{timeUntil}</Text> : null}
+        {timeUntil ? <Text style={[styles.timeUntil, isLarge && styles.timeUntilStacked]}>{timeUntil}</Text> : null}
       </View>
 
       {/* Where */}
@@ -104,27 +109,26 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
       <View style={styles.driverRow}>
         <Avatar name={ride.name} role="driver" uri={ride.avatarUrl} size={36} />
         <View style={styles.nameCol}>
-          <Text style={styles.name} numberOfLines={1}>
-            {isOwn ? `${ride.name} (You)` : ride.name}
-          </Text>
+          <Text style={styles.name}>{isOwn ? `${ride.name} (You)` : ride.name}</Text>
           <RatingSummary rating={ride.driverRating} style={styles.ratingRow} />
+          {isLarge ? <View style={styles.seatBadgeStacked}>{seatBadge}</View> : null}
         </View>
-        {seatBadge}
+        {isLarge ? null : seatBadge}
       </View>
 
       {!isPast && (ride.pendingRequests.length > 0 || ride.matchedRiders.length > 0) && (
-        <Text style={styles.requestSummary} numberOfLines={1}>
+        <Text style={styles.requestSummary}>
           {ride.matchedRiders.length} confirmed · {ride.pendingRequests.length} pending
         </Text>
       )}
 
-      <View style={styles.actions}>
+      <View style={[styles.actions, isLarge && styles.actionsStacked]}>
         <AppButton
           title="Details"
           variant="secondary"
           size="sm"
           onPress={onView}
-          style={primaryAction ? styles.detailsButton : styles.flex}
+          style={isLarge ? styles.actionStacked : primaryAction ? styles.detailsButton : styles.flex}
         />
         {primaryAction}
       </View>
@@ -132,13 +136,11 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
   );
 }
 
-function StatusPill({ icon, label, color }) {
+function StatusPill({ icon, label, color, style }) {
   return (
-    <View style={[styles.statusPill, { backgroundColor: `${color}14` }]}>
+    <View style={[styles.statusPill, { backgroundColor: `${color}14` }, style]}>
       <Ionicons name={icon} size={15} color={color} />
-      <Text style={[styles.statusPillText, { color }]} numberOfLines={1}>
-        {label}
-      </Text>
+      <Text style={[styles.statusPillText, { color }]}>{label}</Text>
     </View>
   );
 }
@@ -154,6 +156,10 @@ const styles = createThemedStyles(() => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  whenRowStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
   timeChip: {
     flexDirection: 'row',
@@ -173,6 +179,10 @@ const styles = createThemedStyles(() => ({
     ...typography.caption,
     color: colors.textMuted,
     marginLeft: spacing.sm,
+  },
+  timeUntilStacked: {
+    marginLeft: 0,
+    marginTop: 2,
   },
   route: {
     marginTop: spacing.md,
@@ -197,6 +207,9 @@ const styles = createThemedStyles(() => ({
   ratingRow: {
     marginTop: 2,
   },
+  seatBadgeStacked: {
+    marginTop: spacing.sm,
+  },
   requestSummary: {
     ...typography.caption,
     color: colors.textMuted,
@@ -208,8 +221,18 @@ const styles = createThemedStyles(() => ({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
+  actionsStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   flex: {
     flex: 1,
+  },
+  // A stacked action keeps its natural height (flex: 1 in a column would
+  // squash it) and fills the card's width.
+  actionStacked: {
+    flex: 0,
+    alignSelf: 'stretch',
   },
   detailsButton: {
     paddingHorizontal: spacing.xl,
@@ -228,5 +251,7 @@ const styles = createThemedStyles(() => ({
     fontSize: 13,
     fontWeight: '600',
     marginLeft: 6,
+    flexShrink: 1,
+    textAlign: 'center',
   },
 }));

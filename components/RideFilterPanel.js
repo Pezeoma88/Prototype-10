@@ -6,7 +6,15 @@ import TextField from './TextField';
 import SegmentedControl from './SegmentedControl';
 import { RIDER_SORT_OPTIONS, SEAT_FILTER_OPTIONS, countPanelFilters, hasActiveRideFilters } from '../lib/rideFilters';
 import { formatDepartureDate } from '../lib/format';
-import { colors, createThemedStyles, getColorScheme, radius, spacing, typography } from '../theme/theme';
+import {
+  MAX_CHROME_FONT_SCALE,
+  colors,
+  createThemedStyles,
+  getColorScheme,
+  radius,
+  spacing,
+  typography,
+} from '../theme/theme';
 
 // Rider-mode search and filters above Available Rides: a destination search
 // field that filters as you type, a Filters button that opens departure
@@ -84,7 +92,9 @@ export default function RideFilterPanel({ filters, onChange, onClear, resultCoun
           />
           {panelCount > 0 && (
             <View style={styles.countDot}>
-              <Text style={styles.countText}>{panelCount}</Text>
+              <Text style={styles.countText} maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}>
+                {panelCount}
+              </Text>
             </View>
           )}
         </Pressable>
@@ -107,10 +117,7 @@ export default function RideFilterPanel({ filters, onChange, onClear, resultCoun
               ]}
             >
               <Ionicons name="calendar-outline" size={16} color={colors.primary} />
-              <Text
-                style={filters.date !== null ? styles.dateValue : styles.datePlaceholder}
-                numberOfLines={1}
-              >
+              <Text style={filters.date !== null ? styles.dateValue : styles.datePlaceholder}>
                 {filters.date !== null ? formatDepartureDate(filters.date) : 'Any date'}
               </Text>
               {isDatePickerOpen && Platform.OS === 'ios' ? (
@@ -196,9 +203,11 @@ const styles = createThemedStyles(() => ({
     flex: 1,
     marginBottom: 0,
   },
+  // As tall as the search field next to it, which grows with large text.
   filterButton: {
     width: 50,
-    height: 50,
+    minHeight: 50,
+    alignSelf: 'stretch',
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -215,7 +224,7 @@ const styles = createThemedStyles(() => ({
     top: -5,
     right: -5,
     minWidth: 18,
-    height: 18,
+    minHeight: 18,
     borderRadius: 9,
     paddingHorizontal: 4,
     backgroundColor: colors.primary,
@@ -302,15 +311,20 @@ const styles = createThemedStyles(() => ({
     marginBottom: spacing.lg,
     overflow: 'hidden',
   },
+  // Wraps Clear Filters onto its own line when large text needs the room.
   summaryRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    columnGap: spacing.md,
+    rowGap: spacing.xs,
     marginTop: spacing.md,
   },
   summaryText: {
     ...typography.label,
     color: colors.textMuted,
+    flexShrink: 1,
   },
   clearText: {
     ...typography.label,

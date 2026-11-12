@@ -7,14 +7,9 @@ export default function ScreenHeader({ title, subtitle, right }) {
   return (
     <View style={styles.row}>
       <View style={styles.textGroup}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={2}>
-            {subtitle}
-          </Text>
-        ) : null}
+        {/* Titles and subtitles wrap rather than cut off (long names, large text). */}
+        <Text style={styles.title}>{title}</Text>
+        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
       {right ? <View style={styles.right}>{right}</View> : null}
     </View>

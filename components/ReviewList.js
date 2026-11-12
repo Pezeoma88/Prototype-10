@@ -26,11 +26,11 @@ export default function ReviewList({ reviews, emptyText = 'No reviews yet.', cur
           <View style={styles.headerRow}>
             <Avatar name={review.reviewerName} role="rider" uri={review.reviewerAvatarUrl} size={34} />
             <View style={styles.headerText}>
-              <Text style={styles.name} numberOfLines={1}>
+              <Text style={styles.name}>
                 {review.reviewerName}
                 {review.reviewerId === currentUserId ? <Text style={styles.you}>  (You)</Text> : null}
               </Text>
-              <Text style={styles.meta} numberOfLines={1}>
+              <Text style={styles.meta}>
                 Ride to {review.rideDestination} · {formatReviewDate(review.createdAt)}
               </Text>
             </View>

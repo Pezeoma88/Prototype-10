@@ -1,15 +1,17 @@
 import { Text, View } from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { colors, createThemedStyles, radius, spacing, typography } from '../theme/theme';
+import { colors, createThemedStyles, radius, spacing } from '../theme/theme';
 
 // Inline message banner (e.g. "Your request is now Pending", or a load
-// error). `tone` picks the accent: info (blue), warning (amber), danger (red).
+// error). `tone` picks the accent: info (blue), warning (amber), danger (red),
+// success (green).
 // Built per render so the colors follow the Light/Dark setting.
 function getTones() {
   return {
     info: { icon: 'information-circle', color: colors.primary, bg: colors.primarySoft },
     warning: { icon: 'alert-circle', color: colors.pending, bg: colors.pendingSoft },
     danger: { icon: 'close-circle', color: colors.danger, bg: colors.dangerSoft },
+    success: { icon: 'checkmark-circle', color: colors.success, bg: colors.successSoft },
   };
 }
 
@@ -38,10 +40,14 @@ const styles = createThemedStyles(() => ({
     marginRight: spacing.sm,
     marginTop: 1,
   },
+  // Notices often hold a full sentence or two (errors, reset-email status),
+  // so they use a slightly larger, lighter face with roomier lines than the
+  // 13pt semibold labels, which are hard to read in long runs.
   text: {
-    ...typography.label,
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.text,
     flex: 1,
-    lineHeight: 19,
+    lineHeight: 20,
   },
 }));

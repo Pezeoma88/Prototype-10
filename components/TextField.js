@@ -104,9 +104,12 @@ const styles = createThemedStyles(() => ({
     marginTop: 6,
     lineHeight: 17,
   },
+  // Field errors can be a full sentence (e.g. a rejected reset code), so
+  // they get the same comfortable line spacing as hints.
   error: {
     ...typography.caption,
     color: colors.danger,
     marginTop: 6,
+    lineHeight: 17,
   },
 }));

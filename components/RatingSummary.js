@@ -39,8 +39,10 @@ export default function RatingSummary({ rating, stars = false, style }) {
 }
 
 const styles = createThemedStyles(() => ({
+  // Wraps "· 12 reviews" under the stars when large text needs the room.
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
   },
   average: {

@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { colors, createThemedStyles, spacing } from '../theme/theme';
+import { MAX_CHROME_FONT_SCALE, colors, createThemedStyles, spacing } from '../theme/theme';
 
 // The four main sections of CarpoolBoard, in tab-bar order.
 export const TABS = [
@@ -14,6 +14,9 @@ export const TABS = [
 // Compact white bottom navigation. The active tab gets a filled icon, the
 // primary blue, and a short bar above its icon. Bottom padding follows the device's
 // safe area so it clears the iPhone home indicator.
+// Labels grow with the phone's text size up to MAX_CHROME_FONT_SCALE: each
+// tab is a quarter of the screen wide, so larger would run into its
+// neighbors (the tab names are also read out by screen readers).
 export default function TabBar({ activeTab, onTabPress, badges = {} }) {
   const insets = useSafeAreaInsets();
 
@@ -40,11 +43,16 @@ export default function TabBar({ activeTab, onTabPress, badges = {} }) {
                   <Ionicons name={isActive ? tab.activeIcon : tab.icon} size={23} color={tint} />
                   {badgeCount > 0 && (
                     <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
+                      <Text style={styles.badgeText} maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}>
+                        {badgeCount > 9 ? '9+' : badgeCount}
+                      </Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.label, { color: tint }, isActive && styles.labelActive]}>
+                <Text
+                  style={[styles.label, { color: tint }, isActive && styles.labelActive]}
+                  maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}
+                >
                   {tab.label}
                 </Text>
               </View>
@@ -76,6 +84,7 @@ const styles = createThemedStyles(() => ({
     fontSize: 11,
     fontWeight: '500',
     marginTop: 3,
+    textAlign: 'center',
   },
   labelActive: {
     fontWeight: '600',
@@ -96,7 +105,7 @@ const styles = createThemedStyles(() => ({
     top: -4,
     right: -10,
     minWidth: 16,
-    height: 16,
+    minHeight: 16,
     borderRadius: 8,
     paddingHorizontal: 4,
     backgroundColor: colors.danger,
