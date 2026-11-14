@@ -4,7 +4,10 @@ import { colors, createThemedStyles, radius, shadow, spacing } from '../theme/th
 // Pill-style segmented control, e.g. the Available Rides sort options.
 // options: [{ key, label }]. The selected segment is a raised white pill
 // whose label is drawn in `tint`.
-export default function SegmentedControl({ options, value, onChange, tint = colors.primary, style }) {
+// accessibilityLabel is optional: when given, screen readers hear each
+// option as "<accessibilityLabel>: <option>" (e.g. "Text size: Large"),
+// so the choice makes sense without the visible heading above it.
+export default function SegmentedControl({ options, value, onChange, tint = colors.primary, style, accessibilityLabel }) {
   return (
     <View style={[styles.track, style]}>
       {options.map((option) => {
@@ -15,6 +18,7 @@ export default function SegmentedControl({ options, value, onChange, tint = colo
             onPress={() => onChange(option.key)}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
+            accessibilityLabel={accessibilityLabel ? `${accessibilityLabel}: ${option.label}` : undefined}
             style={({ pressed }) => [
               styles.segment,
               isActive && styles.segmentActive,

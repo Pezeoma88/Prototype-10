@@ -16,6 +16,7 @@ import {
   formatMiles,
   straightLineMeters,
 } from '../lib/routing';
+import { useReduceMotion } from '../lib/useAccessibility';
 import { colors, createThemedStyles, getColorScheme, gutter, radius, shadow, spacing, typography } from '../theme/theme';
 
 // Map tab: the rides on the board, shown as pins at their pickup spots
@@ -49,6 +50,10 @@ export default function MapScreen({
 }) {
   // The key of the pickup spot whose rides are showing, or null.
   const [selectedSpotKey, setSelectedSpotKey] = useState(null);
+  // With Reduce Motion the map jumps to its new view instead of gliding.
+  const reduceMotion = useReduceMotion();
+  const zoomMs = reduceMotion ? 0 : 250;
+  const recenterMs = reduceMotion ? 0 : 400;
   // The id of the ride whose route is showing, or null while browsing.
   const [routeRideId, setRouteRideId] = useState(null);
   // Goes up by one each time Try Again is tapped, to look the route up again.
@@ -105,7 +110,7 @@ export default function MapScreen({
         bottom: routeCardHeightRef.current + spacing.md + 40,
         left: 50,
       },
-      animated: true,
+      animated: !reduceMotion,
     });
   }
 
@@ -158,7 +163,7 @@ export default function MapScreen({
     if (!map) return;
     const next = zoomRegion(regionRef.current, factor);
     regionRef.current = next;
-    map.animateToRegion(next, 250);
+    map.animateToRegion(next, zoomMs);
   }
 
   // Re-center: while a route is open, frame that route again (the road
@@ -176,14 +181,14 @@ export default function MapScreen({
       return;
     }
     regionRef.current = SMU_MAP_REGION;
-    map.animateToRegion(SMU_MAP_REGION, 400);
+    map.animateToRegion(SMU_MAP_REGION, recenterMs);
   }
 
   // Back to browsing: the pin the route was opened from is still selected.
   function handleCloseRoute() {
     setRouteRideId(null);
     if (mapRef.current) {
-      mapRef.current.animateToRegion(SMU_MAP_REGION, 400);
+      mapRef.current.animateToRegion(SMU_MAP_REGION, recenterMs);
     }
   }
 

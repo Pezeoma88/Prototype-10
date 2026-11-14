@@ -43,8 +43,24 @@ import {
   sortPastRides,
 } from './lib/rideStatus';
 import { useNow } from './lib/useNow';
-import { getIntroStatus, loadSavedColorScheme, saveColorScheme, setIntroStatus } from './lib/preferences';
-import { applyColorScheme, colors, createThemedStyles, getColorScheme, gutter, statusBarStyle } from './theme/theme';
+import {
+  getIntroStatus,
+  loadAccessibilitySettings,
+  loadSavedColorScheme,
+  saveColorScheme,
+  setIntroStatus,
+} from './lib/preferences';
+import { getAppTextScale } from './lib/accessibilitySettings';
+import { AccessibilityContext, useAccessibilityState } from './lib/useAccessibility';
+import {
+  applyColorScheme,
+  applyTextScale,
+  colors,
+  createThemedStyles,
+  getColorScheme,
+  gutter,
+  statusBarStyle,
+} from './theme/theme';
 import TabBar from './components/TabBar';
 import Toast from './components/Toast';
 import LoadingState from './components/LoadingState';
@@ -72,6 +88,23 @@ import ConversationScreen from './screens/ConversationScreen';
 // first screen (sign-in or the board) already uses it.
 applyColorScheme(loadSavedColorScheme());
 
+// Likewise the saved Profile › Accessibility settings: the app's own text
+// size is built into the style sheets before the first screen is drawn.
+const initialAccessibilitySettings = loadAccessibilitySettings();
+applyTextScale(getAppTextScale(initialAccessibilitySettings));
+
+// Holds the accessibility settings and shares them (lib/useAccessibility.js).
+// The state lives here, above CarpoolBoard, so a text size change re-renders
+// the whole app and every style sheet picks up the new size.
+export default function App() {
+  const accessibility = useAccessibilityState(initialAccessibilitySettings);
+  return (
+    <AccessibilityContext.Provider value={accessibility}>
+      <CarpoolBoard />
+    </AccessibilityContext.Provider>
+  );
+}
+
 // This is the home screen for CarpoolBoard.
 // Drivers can be added (with a name and seat count), riders can ask for a ride,
 // and a waiting rider can be matched to a driver's open seat.
@@ -81,7 +114,7 @@ applyColorScheme(loadSavedColorScheme());
 // (pending / accepted / denied / cancelled). The app reloads the whole board
 // from Supabase on launch, on pull-to-refresh, and after every change, then
 // rebuilds the same `drivers` / `riders` shapes the UI rendered before.
-export default function App() {
+function CarpoolBoard() {
   // The list of drivers (posted rides), rebuilt from Supabase on every load.
   // Each driver is an object like
   // { id, driverAccountId, name, destination, pickup, departureAt,

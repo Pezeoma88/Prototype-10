@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Pressable, Text, View } from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useReduceMotion } from '../lib/useAccessibility';
 import { colors, createThemedStyles, radius, shadow, spacing, typography } from '../theme/theme';
 
 // How long a toast stays on screen before fading out.
@@ -23,15 +24,23 @@ function getTones() {
 // `toast` is { id, title, message, tone } or null; a new id restarts it, so
 // the same message shown twice in a row still appears again. Screen readers
 // announce it, since it may show up away from where focus is.
+// With Reduce Motion (lib/useAccessibility.js) it appears and disappears in
+// place, with no slide or fade; it still stays for the same time.
 export default function Toast({ toast, onHide }) {
   const progress = useRef(new Animated.Value(0)).current;
   const onHideRef = useRef(onHide);
   onHideRef.current = onHide;
+  const reduceMotion = useReduceMotion();
 
   const toastId = toast ? toast.id : null;
   useEffect(() => {
     if (toastId === null) {
       return undefined;
+    }
+    if (reduceMotion) {
+      progress.setValue(1);
+      const timer = setTimeout(() => onHideRef.current(), VISIBLE_MS);
+      return () => clearTimeout(timer);
     }
     progress.setValue(0);
     Animated.timing(progress, { toValue: 1, duration: FADE_MS, useNativeDriver: true }).start();
@@ -43,7 +52,7 @@ export default function Toast({ toast, onHide }) {
       );
     }, VISIBLE_MS);
     return () => clearTimeout(timer);
-  }, [toastId, progress]);
+  }, [toastId, progress, reduceMotion]);
 
   const announcement = toast ? [toast.title, toast.message].filter(Boolean).join('. ') : '';
   useEffect(() => {
@@ -58,7 +67,7 @@ export default function Toast({ toast, onHide }) {
 
   const tones = getTones();
   const t = tones[toast.tone] || tones.success;
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
+  const translateY = reduceMotion ? 0 : progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
 
   return (
     <Animated.View

@@ -27,6 +27,7 @@ import RiderCard from '../components/RiderCard';
 import RideFilterPanel from '../components/RideFilterPanel';
 import { RIDE_SORT_OPTIONS } from '../lib/format';
 import { DEFAULT_RIDE_FILTERS } from '../lib/rideFilters';
+import { useReduceMotion } from '../lib/useAccessibility';
 import { colors, createThemedStyles, gutter, radius, shadow, spacing, typography } from '../theme/theme';
 
 // "Good morning" / "Good afternoon" / "Good evening" from the device clock.
@@ -99,6 +100,8 @@ export default function HomeScreen({
   const ridersSectionY = useRef(0);
   // Past rides start collapsed so the bookable board stays the focus.
   const [showPastRides, setShowPastRides] = useState(false);
+  // Reduce Motion: jump to a section instead of scrolling there.
+  const reduceMotion = useReduceMotion();
 
   // Driver/Rider UI follows the session's activeMode, not profiles.role.
   const isDriver = activeMode === 'driver';
@@ -114,7 +117,7 @@ export default function HomeScreen({
   else if (showRiderForm) viewKey = 'riderForm';
 
   function scrollToY(y) {
-    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - spacing.md), animated: true });
+    scrollViewRef.current?.scrollTo({ y: Math.max(0, y - spacing.md), animated: !reduceMotion });
   }
 
   // Scrolls so the section's header (and, for Upcoming Rides, the search
@@ -437,6 +440,7 @@ export default function HomeScreen({
 // Large tappable action on the Home screen. `filled` = the role's primary
 // action (solid blue); otherwise a white bordered tile with a tinted icon.
 function ActionTile({ icon, title, subtitle, tint = colors.primary, filled = false, onPress }) {
+  const reduceMotion = useReduceMotion();
   return (
     <Pressable
       onPress={onPress}
@@ -445,6 +449,7 @@ function ActionTile({ icon, title, subtitle, tint = colors.primary, filled = fal
         styles.tile,
         filled ? styles.tileFilled : styles.tileOutline,
         pressed && styles.tilePressed,
+        pressed && reduceMotion && styles.tilePressedStill,
       ]}
     >
       <View style={[styles.tileIcon, { backgroundColor: filled ? colors.onAccentSoft : `${tint}14` }]}>
@@ -528,6 +533,10 @@ const styles = createThemedStyles(() => ({
   tilePressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
+  },
+  // Reduce Motion: the press shows as the dimming only.
+  tilePressedStill: {
+    transform: [],
   },
   tileIcon: {
     width: 36,

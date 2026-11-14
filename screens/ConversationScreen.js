@@ -14,6 +14,7 @@ import { checkMessageBody } from '../lib/messageText';
 import { buildThreadItems } from '../lib/messageThread';
 import { useNow } from '../lib/useNow';
 import { useRideConversation } from '../lib/useRideConversation';
+import { useReduceMotion } from '../lib/useAccessibility';
 import { colors, createThemedStyles, gutter, spacing, typography } from '../theme/theme';
 
 // A private conversation between a ride's driver and one accepted rider
@@ -72,6 +73,8 @@ export default function ConversationScreen({
   // The draft is also kept in a ref so two very fast taps on Send read the
   // already-cleared text the second time and can't send it twice.
   const [draft, setDraft] = useState('');
+  // Reduce Motion: new messages appear without the thread scrolling smoothly.
+  const reduceMotion = useReduceMotion();
   const draftRef = useRef('');
   const scrollRef = useRef(null);
   const isNearBottomRef = useRef(true);
@@ -109,7 +112,7 @@ export default function ConversationScreen({
 
   function handleContentSizeChange() {
     if (isNearBottomRef.current) {
-      scrollRef.current?.scrollToEnd?.({ animated: true });
+      scrollRef.current?.scrollToEnd?.({ animated: !reduceMotion });
     }
   }
 

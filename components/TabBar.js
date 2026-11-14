@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { MAX_CHROME_FONT_SCALE, colors, createThemedStyles, spacing } from '../theme/theme';
+import { chromeMaxFontSizeMultiplier, colors, createThemedStyles, spacing } from '../theme/theme';
 
 // The four main sections of CarpoolBoard, in tab-bar order.
 export const TABS = [
@@ -14,7 +14,9 @@ export const TABS = [
 // Compact white bottom navigation. The active tab gets a filled icon, the
 // primary blue, and a short bar above its icon. Bottom padding follows the device's
 // safe area so it clears the iPhone home indicator.
-// Labels grow with the phone's text size up to MAX_CHROME_FONT_SCALE: each
+// Labels grow with the text size up to MAX_CHROME_FONT_SCALE in total (the
+// phone's setting and Profile › Accessibility combined, see
+// chromeMaxFontSizeMultiplier in theme/theme.js): each
 // tab is a quarter of the screen wide, so larger would run into its
 // neighbors (the tab names are also read out by screen readers).
 export default function TabBar({ activeTab, onTabPress, badges = {} }) {
@@ -43,7 +45,7 @@ export default function TabBar({ activeTab, onTabPress, badges = {} }) {
                   <Ionicons name={isActive ? tab.activeIcon : tab.icon} size={23} color={tint} />
                   {badgeCount > 0 && (
                     <View style={styles.badge}>
-                      <Text style={styles.badgeText} maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}>
+                      <Text style={styles.badgeText} maxFontSizeMultiplier={chromeMaxFontSizeMultiplier()}>
                         {badgeCount > 9 ? '9+' : badgeCount}
                       </Text>
                     </View>
@@ -51,7 +53,7 @@ export default function TabBar({ activeTab, onTabPress, badges = {} }) {
                 </View>
                 <Text
                   style={[styles.label, { color: tint }, isActive && styles.labelActive]}
-                  maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}
+                  maxFontSizeMultiplier={chromeMaxFontSizeMultiplier()}
                 >
                   {tab.label}
                 </Text>

@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { useReduceMotion } from '../lib/useAccessibility';
 import { colors, createThemedStyles, radius, spacing } from '../theme/theme';
 
 // The one button style system for CarpoolBoard:
@@ -36,6 +37,8 @@ export default function AppButton({
   const v = variants[variant] || variants.primary;
   const isDisabled = disabled || loading;
   const textColor = isDisabled ? colors.textFaint : v.text;
+  // The press still shows as a color change; Reduce Motion drops the shrink.
+  const reduceMotion = useReduceMotion();
 
   return (
     <Pressable
@@ -49,7 +52,7 @@ export default function AppButton({
         size === 'sm' && styles.small,
         { backgroundColor: isDisabled ? colors.surfaceSunken : pressed ? v.pressedBg : v.bg },
         v.border && !isDisabled && { borderWidth: 1, borderColor: v.border },
-        pressed && !isDisabled && styles.pressed,
+        pressed && !isDisabled && !reduceMotion && styles.pressed,
         style,
       ]}
     >

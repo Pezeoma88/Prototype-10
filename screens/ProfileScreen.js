@@ -10,6 +10,7 @@ import RatingSummary from '../components/RatingSummary';
 import ReviewList from '../components/ReviewList';
 import SegmentedControl from '../components/SegmentedControl';
 import DemoNetworkPanel from '../components/DemoNetworkPanel';
+import AccessibilitySettingsSection from '../components/AccessibilitySettingsSection';
 import { colors, createThemedStyles, gutter, radius, roleColor, shadow, spacing, typography } from '../theme/theme';
 
 // Light/Dark choices for the Appearance card.
@@ -161,6 +162,9 @@ export default function ProfileScreen({
           onChange={handleSetColorScheme}
         />
       </FormSection>
+
+      {/* Accessibility Mode, text size, and motion, saved on this phone */}
+      <AccessibilitySettingsSection />
 
       {/* Account */}
       <FormSection title="Account" icon="settings-outline" tint={colors.textMuted}>

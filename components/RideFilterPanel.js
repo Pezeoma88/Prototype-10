@@ -7,7 +7,7 @@ import SegmentedControl from './SegmentedControl';
 import { RIDER_SORT_OPTIONS, SEAT_FILTER_OPTIONS, countPanelFilters, hasActiveRideFilters } from '../lib/rideFilters';
 import { formatDepartureDate } from '../lib/format';
 import {
-  MAX_CHROME_FONT_SCALE,
+  chromeMaxFontSizeMultiplier,
   colors,
   createThemedStyles,
   getColorScheme,
@@ -92,7 +92,7 @@ export default function RideFilterPanel({ filters, onChange, onClear, resultCoun
           />
           {panelCount > 0 && (
             <View style={styles.countDot}>
-              <Text style={styles.countText} maxFontSizeMultiplier={MAX_CHROME_FONT_SCALE}>
+              <Text style={styles.countText} maxFontSizeMultiplier={chromeMaxFontSizeMultiplier()}>
                 {panelCount}
               </Text>
             </View>

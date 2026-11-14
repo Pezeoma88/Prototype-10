@@ -120,8 +120,13 @@ const PALETTES = { light: lightColors, dark: darkColors };
 export const colors = { ...lightColors };
 
 let colorScheme = 'light';
-// Bumped on every switch so themed style sheets know to rebuild.
+// Bumped on every color scheme or text size switch so themed style sheets
+// know to rebuild.
 let schemeVersion = 0;
+// CarpoolBoard's own text size multiplier (Profile › Accessibility): 1 at
+// Normal, or while Accessibility Mode is off. It is applied on top of the
+// phone's text size setting, which React Native applies by itself.
+let textScale = 1;
 
 // 'light' or 'dark'. Also usable directly as a keyboardAppearance,
 // DateTimePicker themeVariant, or MapView userInterfaceStyle.
@@ -147,15 +152,57 @@ export function applyColorScheme(scheme) {
   gradients.primary = [colors.primary, colors.primaryPressed];
 }
 
-// A StyleSheet whose colors follow the active scheme. Use it like
-// StyleSheet.create, but pass a function: `createThemedStyles(() => ({...}))`.
-// The sheet is built on first use and again after each scheme switch.
+// The app's own text size multiplier (1 = Normal / Accessibility Mode off).
+export function getTextScale() {
+  return textScale;
+}
+
+// Sets the app's text size multiplier (anything that isn't a number ≥ 1 is
+// treated as 1). Like applyColorScheme, callers re-render afterwards; App
+// does this from its accessibility settings state.
+export function applyTextScale(scale) {
+  const next = typeof scale === 'number' && Number.isFinite(scale) && scale >= 1 ? scale : 1;
+  if (next === textScale) {
+    return;
+  }
+  textScale = next;
+  schemeVersion += 1;
+}
+
+// Multiplies fontSize and lineHeight in each style of a sheet definition.
+// Everything else (padding, icon sizes, min heights) is left alone: those
+// already make room for longer text, the same as with the phone's setting.
+export function scaleTextStyles(definition, scale) {
+  if (scale === 1) {
+    return definition;
+  }
+  const scaled = {};
+  for (const [name, style] of Object.entries(definition)) {
+    if (style === null || typeof style !== 'object') {
+      scaled[name] = style;
+      continue;
+    }
+    const next = { ...style };
+    for (const key of ['fontSize', 'lineHeight']) {
+      if (typeof next[key] === 'number') {
+        next[key] = Math.round(next[key] * scale * 10) / 10;
+      }
+    }
+    scaled[name] = next;
+  }
+  return scaled;
+}
+
+// A StyleSheet whose colors follow the active scheme and whose text follows
+// the app's text size. Use it like StyleSheet.create, but pass a function:
+// `createThemedStyles(() => ({...}))`. The sheet is built on first use and
+// again after each scheme or text size switch.
 export function createThemedStyles(build) {
   let sheet = null;
   let builtFor = -1;
   function current() {
     if (builtFor !== schemeVersion) {
-      sheet = StyleSheet.create(build());
+      sheet = StyleSheet.create(scaleTextStyles(build(), textScale));
       builtFor = schemeVersion;
     }
     return sheet;
@@ -194,6 +241,13 @@ export const radius = {
 // setting without a cap; these sit in fixed-width or fixed-height spaces, so
 // past this they'd overlap their neighbors instead of becoming readable.
 export const MAX_CHROME_FONT_SCALE = 1.5;
+
+// maxFontSizeMultiplier for that chrome. The app's text size is already
+// built into its font sizes, so the phone's setting may only add what's
+// left of MAX_CHROME_FONT_SCALE: the total stays at most 1.5× either way.
+export function chromeMaxFontSizeMultiplier() {
+  return Math.max(1, MAX_CHROME_FONT_SCALE / textScale);
+}
 
 export const typography = {
   caption: { fontSize: 12, fontWeight: '500' },
