@@ -8,7 +8,7 @@ import Badge from '../components/Badge';
 import Notice from '../components/Notice';
 import RouteLine from '../components/RouteLine';
 import ScreenHeader from '../components/ScreenHeader';
-import { SMU_MAP_REGION, isSamePickup, pickupKey } from '../lib/pickupLocations';
+import { PICKUP_LOCATIONS, SMU_MAP_REGION, isSamePickup, pickupKey } from '../lib/pickupLocations';
 import { MAP_MAX_ZOOM_LEVEL, ZOOM_IN_FACTOR, ZOOM_OUT_FACTOR, zoomRegion } from '../lib/mapZoom';
 import {
   fetchDrivingRoute,
@@ -17,7 +17,17 @@ import {
   straightLineMeters,
 } from '../lib/routing';
 import { useReduceMotion } from '../lib/useAccessibility';
-import { colors, createThemedStyles, getColorScheme, gutter, radius, shadow, spacing, typography } from '../theme/theme';
+import {
+  colors,
+  createThemedStyles,
+  getColorScheme,
+  gutter,
+  isHighContrast,
+  radius,
+  shadow,
+  spacing,
+  typography,
+} from '../theme/theme';
 
 // Map tab: the rides on the board, shown as pins at their pickup spots
 // around the SMU campus. Rides leaving from the same spot share one pin;
@@ -33,11 +43,29 @@ import { colors, createThemedStyles, getColorScheme, gutter, radius, shadow, spa
 // loaded, a dashed straight line is drawn instead and labeled as NOT being
 // driving directions, with no drive time. Destinations are only ever the
 // preset the driver picked: nothing is worked out from the typed text.
+//
+// Suggested meeting spots (Prototype 10, from Project 8 user testing): so
+// the map isn't empty when few rides are posted, the preset pickup
+// landmarks (lib/pickupLocations.js) that have NO ride are drawn as amber
+// diamond markers, unlike the teardrop ride pins, so they can be told apart
+// without relying on color. They are not rides and not official SMU pickup
+// areas, and every label says so. Once a ride is posted at a landmark, its
+// ride pin replaces the suggestion. They are hidden in route view. A
+// collapsible list (collapsed by default) gives screen readers a reliable
+// way to reach each one, since native map markers can be hard to focus.
 
 // How long the route card is assumed to be until it has been measured.
 const ROUTE_CARD_HEIGHT_GUESS = 300;
 // Width and height of each round zoom control.
 const ZOOM_BUTTON_SIZE = 40;
+// Side of the square that is turned 45° into a suggested-spot diamond.
+const SUGGESTED_DIAMOND_SIZE = 16;
+// How long a newly drawn suggested marker keeps redrawing its custom view.
+// After that it is a still image, which is much cheaper on Android, but
+// stopping right away can leave it blank there.
+const SUGGESTED_MARKER_DRAW_MS = 500;
+// Screen-reader text shared by each suggested marker and its list row.
+const suggestedSpotLabel = (label) => `Suggested spot, ${label}. No rides posted here.`;
 
 export default function MapScreen({
   drivers,
@@ -48,8 +76,10 @@ export default function MapScreen({
   onOpenRide,
   onGoHome,
 }) {
-  // The key of the pickup spot whose rides are showing, or null.
+  // The key of the selected spot (a ride spot or a suggested spot), or null.
   const [selectedSpotKey, setSelectedSpotKey] = useState(null);
+  // Whether the list of suggested spots is open. Collapsed by default.
+  const [isSuggestedListOpen, setIsSuggestedListOpen] = useState(false);
   // With Reduce Motion the map jumps to its new view instead of gliding.
   const reduceMotion = useReduceMotion();
   const zoomMs = reduceMotion ? 0 : 250;
@@ -86,6 +116,18 @@ export default function MapScreen({
   const offMapCount = drivers.filter((ride) => !ride.pickup).length;
   // null again if the selected spot's last ride was cancelled.
   const selectedSpot = spots.find((spot) => spot.key === selectedSpotKey) || null;
+  // The preset landmarks with no ride leaving from them. A landmark drops
+  // out of this list as soon as a ride is posted there, so a suggested
+  // marker and a ride pin are never drawn at the same spot.
+  const suggestedSpots = PICKUP_LOCATIONS.map((place) => ({
+    key: pickupKey(place),
+    label: place.label,
+    coordinate: { latitude: place.latitude, longitude: place.longitude },
+  })).filter((place) => !spots.some((spot) => spot.key === place.key));
+  // null again if a ride was posted at the selected suggestion (its ride
+  // preview then shows instead, since the keys match).
+  const selectedSuggestion =
+    suggestedSpots.find((place) => place.key === selectedSpotKey) || null;
   const isFirstLoad = isBoardLoading && drivers.length === 0;
 
   // The ride whose route is showing. null again if it was cancelled, or
@@ -182,6 +224,18 @@ export default function MapScreen({
     }
     regionRef.current = SMU_MAP_REGION;
     map.animateToRegion(SMU_MAP_REGION, recenterMs);
+  }
+
+  // From the suggested-spots list: select the spot and move the map to it,
+  // keeping the current zoom. The list stays open so a screen reader's
+  // focus stays on the row that was pressed.
+  function handleShowSuggestion(place) {
+    setSelectedSpotKey(place.key);
+    const map = readyMap();
+    if (!map) return;
+    const next = { ...regionRef.current, ...place.coordinate };
+    regionRef.current = next;
+    map.animateToRegion(next, recenterMs);
   }
 
   // Back to browsing: the pin the route was opened from is still selected.
@@ -282,6 +336,20 @@ export default function MapScreen({
             />
           )}
 
+          {/* Suggested meeting spots: drawn before (and below) the ride
+              pins, and only while browsing. */}
+          {!routeRide &&
+            suggestedSpots.map((place) => (
+              <SuggestedSpotMarker
+                // Selection and outline color are in the key so the frozen
+                // marker image is redrawn when either changes.
+                key={`suggested-${place.key}-${place.key === selectedSpotKey ? 'on' : 'off'}-${colors.markerOutline}`}
+                place={place}
+                isSelected={place.key === selectedSpotKey}
+                onPress={() => setSelectedSpotKey(place.key)}
+              />
+            ))}
+
           {!routeRide && spots.map((spot) => {
             const isSelected = spot.key === selectedSpotKey;
             const allFull = spot.rides.every((ride) => ride.seats === 0);
@@ -293,10 +361,14 @@ export default function MapScreen({
                 key={`${spot.key}-${pinColor}`}
                 coordinate={spot.coordinate}
                 pinColor={pinColor}
+                // Above any nearby suggested-spot diamond.
+                zIndex={1}
                 onPress={() => setSelectedSpotKey(spot.key)}
+                // The gray "all full" pin differs only by color, so the
+                // label says it too.
                 accessibilityLabel={`${spot.label}: ${spot.rides.length} ride${
                   spot.rides.length === 1 ? '' : 's'
-                }`}
+                }${allFull ? ', full' : ''}`}
               />
             );
           })}
@@ -318,6 +390,11 @@ export default function MapScreen({
                   ? `${offMapCount} ride${offMapCount === 1 ? ' has' : 's have'} no pickup spot. Drivers can add one by editing their ride.`
                   : 'Rides appear here once a driver posts one with a pickup spot.'}
               </Text>
+              {suggestedSpots.length > 0 && (
+                <Text style={styles.emptyText}>
+                  Amber diamonds are suggested meeting spots, not rides.
+                </Text>
+              )}
               <AppButton
                 title="Browse Rides on Home"
                 variant="secondary"
@@ -334,6 +411,74 @@ export default function MapScreen({
               </Text>
             </View>
           ) : null}
+
+          {/* Map key and the list of suggested spots. Browsing only. */}
+          {!routeRide && !isFirstLoad && suggestedSpots.length > 0 && (
+            <View style={styles.legendCard}>
+              <View
+                style={styles.legendRow}
+                accessible
+                accessibilityLabel="Map key: pin markers are rides. Diamond markers are suggested meeting spots, not rides."
+              >
+                <View style={styles.legendItem}>
+                  <Ionicons name="location" size={16} color={colors.primary} />
+                  <Text style={styles.legendText}>Rides</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <SuggestedDiamond size={10} />
+                  <Text style={styles.legendText}>Suggested spots</Text>
+                </View>
+              </View>
+
+              <Pressable
+                onPress={() => setIsSuggestedListOpen((open) => !open)}
+                accessibilityRole="button"
+                accessibilityLabel={`Suggested spots list, ${suggestedSpots.length} spot${
+                  suggestedSpots.length === 1 ? '' : 's'
+                }`}
+                accessibilityState={{ expanded: isSuggestedListOpen }}
+                hitSlop={6}
+                style={styles.listToggle}
+              >
+                <Text style={styles.listToggleText}>
+                  {isSuggestedListOpen ? 'Hide' : 'Show'} suggested spots ({suggestedSpots.length})
+                </Text>
+                <Ionicons
+                  name={isSuggestedListOpen ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.primary}
+                />
+              </Pressable>
+
+              {isSuggestedListOpen && (
+                <ScrollView style={styles.suggestedList} nestedScrollEnabled>
+                  {suggestedSpots.map((place) => {
+                    const isSelected = place.key === selectedSpotKey;
+                    return (
+                      <Pressable
+                        key={place.key}
+                        onPress={() => handleShowSuggestion(place)}
+                        accessibilityRole="button"
+                        accessibilityLabel={suggestedSpotLabel(place.label)}
+                        accessibilityHint="Shows this spot on the map."
+                        accessibilityState={{ selected: isSelected }}
+                        style={({ pressed }) => [
+                          styles.suggestedRow,
+                          isSelected && styles.suggestedRowSelected,
+                          pressed && styles.zoomButtonPressed,
+                        ]}
+                      >
+                        <SuggestedDiamond size={10} />
+                        <Text style={styles.suggestedRowText} numberOfLines={2}>
+                          {place.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Zoom controls, top right, in both browsing and route view. The
@@ -424,6 +569,41 @@ export default function MapScreen({
                 </View>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Card for a selected suggested spot: no rides, no ride buttons. */}
+        {selectedSuggestion && !routeRide && (
+          <View style={styles.preview}>
+            <View style={styles.previewHeader}>
+              <SuggestedDiamond size={14} />
+              <View style={styles.previewTitleCol}>
+                <Text style={styles.previewTitle} numberOfLines={2}>
+                  {selectedSuggestion.label}
+                </Text>
+                <Text style={styles.previewSub}>Suggested meeting spot · no rides posted</Text>
+              </View>
+              <Pressable
+                onPress={() => setSelectedSpotKey(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close suggested spot"
+                hitSlop={10}
+              >
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.suggestedBody}>
+              No rides are leaving from here right now. This campus landmark is one drivers can
+              choose as a pickup when they post a ride. It is not a confirmed ride or an official
+              SMU pickup area.
+            </Text>
+            <AppButton
+              title="Browse Rides on Home"
+              variant="secondary"
+              size="sm"
+              onPress={onGoHome}
+              style={styles.previewButton}
+            />
           </View>
         )}
 
@@ -550,6 +730,49 @@ function MapControlButton({ icon, label, onPress }) {
   );
 }
 
+// The suggested-spot shape: an amber square turned 45° into a diamond, with
+// a light border so it stands out on the map in both themes. Plain views,
+// no icon font, so it draws reliably inside a native marker.
+function SuggestedDiamond({ size = SUGGESTED_DIAMOND_SIZE, isSelected = false }) {
+  return (
+    <View
+      testID="suggested-diamond"
+      style={[
+        styles.diamond,
+        { width: size, height: size },
+        isSelected && styles.diamondSelected,
+      ]}
+    />
+  );
+}
+
+// One suggested spot on the map. Centered on the landmark (unlike a pin,
+// which points at it) and drawn below the ride pins.
+function SuggestedSpotMarker({ place, isSelected, onPress }) {
+  const [isDrawing, setIsDrawing] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setIsDrawing(false), SUGGESTED_MARKER_DRAW_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const size = isSelected ? SUGGESTED_DIAMOND_SIZE + 6 : SUGGESTED_DIAMOND_SIZE;
+  return (
+    <Marker
+      coordinate={place.coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      zIndex={0}
+      tracksViewChanges={isDrawing}
+      onPress={onPress}
+      accessibilityLabel={suggestedSpotLabel(place.label)}
+    >
+      {/* Padding keeps the turned corners inside the marker's image. */}
+      <View style={styles.diamondMarkerWrap}>
+        <SuggestedDiamond size={size} isSelected={isSelected} />
+      </View>
+    </Marker>
+  );
+}
+
 // Whether a ride has both ends of a route: a pickup spot and a mapped
 // destination that aren't the same place.
 function hasRoute(ride) {
@@ -645,6 +868,93 @@ const styles = createThemedStyles(() => ({
   },
   emptyButton: {
     marginTop: spacing.md,
+  },
+  legendCard: {
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    maxWidth: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    ...shadow.card,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: spacing.md,
+    rowGap: spacing.xs,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendText: {
+    ...typography.caption,
+    color: colors.text,
+  },
+  listToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  listToggleText: {
+    ...typography.label,
+    color: colors.primary,
+    flexShrink: 1,
+  },
+  suggestedList: {
+    maxHeight: 200,
+    marginTop: spacing.xs,
+  },
+  suggestedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 44,
+    paddingHorizontal: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  suggestedRowSelected: {
+    backgroundColor: colors.pendingSoft,
+  },
+  suggestedRowText: {
+    ...typography.label,
+    color: colors.text,
+    flexShrink: 1,
+  },
+  suggestedBody: {
+    ...typography.label,
+    color: colors.textMuted,
+    lineHeight: 19,
+    marginTop: spacing.md,
+  },
+  // `suggested` and `markerOutline` match the old amber and white/navy in
+  // the normal palettes; High Contrast gives a black (Light) or white (Dark)
+  // outline so the diamond stands out on the map tiles.
+  diamond: {
+    transform: [{ rotate: '45deg' }],
+    backgroundColor: colors.suggested,
+    borderWidth: 2,
+    borderColor: colors.markerOutline,
+    borderRadius: 2,
+  },
+  // The outline is already black/white in High Contrast, so the selected
+  // one turns blue there (it is also drawn larger).
+  diamondSelected: {
+    borderColor: isHighContrast() ? colors.primary : colors.text,
+  },
+  diamondMarkerWrap: {
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   preview: {
     position: 'absolute',

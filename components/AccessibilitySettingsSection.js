@@ -7,11 +7,14 @@ import { useAccessibility } from '../lib/useAccessibility';
 import { colors, createThemedStyles, spacing, typography } from '../theme/theme';
 
 // Profile › Accessibility (Accessibility Phase 1). Accessibility Mode is the
-// master switch; while it's on, the app's own text size and Reduce Motion can
-// be chosen. High Contrast and Simplified Interface are shown as Coming soon
-// and can't be switched on yet. Settings are saved on this phone right away
+// master switch; while it's on, the app's own text size, Reduce Motion, High
+// Contrast, and Simplified Interface can be chosen. Settings are saved on this phone right away
 // (lib/useAccessibility.js); the phone's own accessibility settings always
 // apply, whatever is chosen here.
+//
+// While the phone's Reduce Motion is on, the app's Reduce Motion switch is
+// shown on and can't be changed (motion is reduced anyway). The saved app
+// choice is left as it was and shows again once the phone's setting is off.
 export default function AccessibilitySettingsSection() {
   const { settings, systemReduceMotion, updateSettings } = useAccessibility();
 
@@ -19,7 +22,7 @@ export default function AccessibilitySettingsSection() {
     updateSettings({ enabled });
     AccessibilityInfo.announceForAccessibility(
       enabled
-        ? 'Accessibility Mode on. Text size and motion settings are shown below.'
+        ? 'Accessibility Mode on. Text size, motion, contrast, and layout settings are shown below.'
         : 'Accessibility Mode off.'
     );
   }
@@ -36,7 +39,7 @@ export default function AccessibilitySettingsSection() {
         description={
           settings.enabled
             ? 'On. Choose your options below.'
-            : 'Turn on to choose a larger text size and reduce motion in CarpoolBoard.'
+            : 'Turn on to choose a larger text size, reduce motion, use high contrast, or simplify the layout in CarpoolBoard.'
         }
         value={settings.enabled}
         onChange={handleToggleMode}
@@ -63,24 +66,27 @@ export default function AccessibilitySettingsSection() {
             description={
               systemReduceMotion
                 ? 'Your phone’s Reduce Motion setting is on, so CarpoolBoard already keeps motion to a minimum.'
-                : 'Turns off sliding, zooming, and shrinking animations in CarpoolBoard.'
+                : REDUCE_MOTION_DESCRIPTION
             }
-            value={settings.reduceMotion}
+            value={systemReduceMotion || settings.reduceMotion}
             onChange={(reduceMotion) => updateSettings({ reduceMotion })}
+            disabled={systemReduceMotion}
             divider
           />
 
           <SettingSwitch
             title="High Contrast"
-            description="Stronger colors and borders for easier reading."
-            comingSoon
+            description="Darker text, stronger borders and outlines, and clearer status colors, in both Light and Dark appearance."
+            value={settings.highContrast}
+            onChange={(highContrast) => updateSettings({ highContrast })}
             divider
           />
 
           <SettingSwitch
             title="Simplified Interface"
-            description="Fewer details on each screen, with larger, simpler actions."
-            comingSoon
+            description="Shows fewer details on Home and on ride cards, with full-width, clearly labeled buttons. Ride times, places, drivers, seats, and request status stay visible."
+            value={settings.simplifiedInterface}
+            onChange={(simplifiedInterface) => updateSettings({ simplifiedInterface })}
             divider
           />
         </>
@@ -89,12 +95,25 @@ export default function AccessibilitySettingsSection() {
   );
 }
 
+// What the app's own Reduce Motion changes, in plain words.
+const REDUCE_MOTION_DESCRIPTION =
+  'Map zooming and re-centering, scrolling, pop-up messages, and button press effects happen instantly instead of animating.';
+
 // One setting: the whole row is a single switch for screen readers ("Reduce
 // Motion, switch, off" plus the description) and one large touch target.
 // The Switch drawn on the right is part of the row, not a second stop.
 // `comingSoon` rows are shown off and disabled with a Coming soon badge.
-function SettingSwitch({ title, description, value = false, onChange, comingSoon = false, divider = false }) {
-  const disabled = comingSoon;
+// `disabled` rows show `value` but can't be changed.
+function SettingSwitch({
+  title,
+  description,
+  value = false,
+  onChange,
+  comingSoon = false,
+  disabled: isLocked = false,
+  divider = false,
+}) {
+  const disabled = comingSoon || isLocked;
   return (
     <Pressable
       onPress={() => onChange?.(!value)}

@@ -7,6 +7,7 @@ import AppButton from './AppButton';
 import RatingSummary from './RatingSummary';
 import RouteLine from './RouteLine';
 import { formatTimeUntil, getPastRideLabel, isRideDeparted } from '../lib/rideStatus';
+import { useSimplifiedInterface } from '../lib/useAccessibility';
 import { useLargeText } from '../lib/useLargeText';
 import { colors, createThemedStyles, radius, spacing, typography } from '../theme/theme';
 
@@ -29,6 +30,12 @@ import { colors, createThemedStyles, radius, spacing, typography } from '../them
 // Names, times, and places wrap instead of being cut off. With large text
 // (lib/useLargeText.js) the seat badge moves under the driver's name and
 // the action buttons stack, so nothing has to squeeze onto one line.
+//
+// Simplified Interface (Profile › Accessibility): the avatar, rating, and
+// "in 3 hours" countdown are left out; the time, route, driver, seats, the
+// confirmed/pending summary, and every request status stay. Actions are
+// full width and larger, the main one first, with plainer labels ("Request
+// a Seat", "View Ride Details"). They do exactly what the usual ones do.
 export default function RideCard({ ride, currentUser, activeMode, myRequestStatus, nowMs, onView, onRequest }) {
   const isOwn = ride.driverAccountId === currentUser.id;
   const isFull = ride.seats === 0;
@@ -38,8 +45,12 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
   const alreadyPending = ride.pendingRequests.some((req) => req.riderId === currentUser.id);
   const timeUntil = formatTimeUntil(ride, nowMs);
   const isLarge = useLargeText();
-  // Side by side normally; full width, one per line, with large text.
-  const actionStyle = isLarge ? styles.actionStacked : styles.flex;
+  const isSimple = useSimplifiedInterface();
+  // Side by side normally; full width, one per line, with large text or the
+  // simplified layout.
+  const isStacked = isLarge || isSimple;
+  const actionStyle = isStacked ? styles.actionStacked : styles.flex;
+  const buttonSize = isSimple ? 'md' : 'sm';
 
   let primaryAction = null;
   if (isPast) {
@@ -49,7 +60,7 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
       primaryAction = <StatusPill icon="car-sport" label="You drove" color={colors.driver} style={actionStyle} />;
     }
   } else if (isOwn && !isRider) {
-    primaryAction = <AppButton title="Manage Ride" icon="settings-outline" size="sm" onPress={onView} style={actionStyle} />;
+    primaryAction = <AppButton title="Manage Ride" icon="settings-outline" size={buttonSize} onPress={onView} style={actionStyle} />;
   } else if (isOwn) {
     // Driver controls stay in Driver mode; Details offers the switch.
     primaryAction = <StatusPill icon="car-sport" label="Your ride" color={colors.driver} style={actionStyle} />;
@@ -65,9 +76,9 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
     } else {
       primaryAction = (
         <AppButton
-          title={isFull ? 'Full' : 'Request Ride'}
+          title={isFull ? 'Full' : isSimple ? 'Request a Seat' : 'Request Ride'}
           icon={isFull ? undefined : 'hand-right-outline'}
-          size="sm"
+          size={buttonSize}
           disabled={isFull}
           onPress={onRequest}
           style={actionStyle}
@@ -88,12 +99,12 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
   return (
     <Card onPress={onView} style={[styles.card, isPast && styles.cardPast]}>
       {/* When */}
-      <View style={[styles.whenRow, isLarge && styles.whenRowStacked]}>
+      <View style={[styles.whenRow, isStacked && styles.whenRowStacked]}>
         <View style={styles.timeChip}>
           <Ionicons name="calendar-clear-outline" size={14} color={isPast ? colors.textMuted : colors.primary} />
           <Text style={[styles.timeText, isPast && styles.timeTextPast]}>{ride.departureTime}</Text>
         </View>
-        {timeUntil ? <Text style={[styles.timeUntil, isLarge && styles.timeUntilStacked]}>{timeUntil}</Text> : null}
+        {timeUntil && !isSimple ? <Text style={[styles.timeUntil, isLarge && styles.timeUntilStacked]}>{timeUntil}</Text> : null}
       </View>
 
       {/* Where */}
@@ -107,13 +118,16 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
 
       {/* Who + seats */}
       <View style={styles.driverRow}>
-        <Avatar name={ride.name} role="driver" uri={ride.avatarUrl} size={36} />
-        <View style={styles.nameCol}>
-          <Text style={styles.name}>{isOwn ? `${ride.name} (You)` : ride.name}</Text>
-          <RatingSummary rating={ride.driverRating} style={styles.ratingRow} />
-          {isLarge ? <View style={styles.seatBadgeStacked}>{seatBadge}</View> : null}
+        {isSimple ? null : <Avatar name={ride.name} role="driver" uri={ride.avatarUrl} size={36} />}
+        <View style={[styles.nameCol, isSimple && styles.nameColSimple]}>
+          <Text style={styles.name}>
+            {isSimple ? 'Driver: ' : ''}
+            {isOwn ? `${ride.name} (You)` : ride.name}
+          </Text>
+          {isSimple ? null : <RatingSummary rating={ride.driverRating} style={styles.ratingRow} />}
+          {isStacked ? <View style={styles.seatBadgeStacked}>{seatBadge}</View> : null}
         </View>
-        {isLarge ? null : seatBadge}
+        {isStacked ? null : seatBadge}
       </View>
 
       {!isPast && (ride.pendingRequests.length > 0 || ride.matchedRiders.length > 0) && (
@@ -122,15 +136,16 @@ export default function RideCard({ ride, currentUser, activeMode, myRequestStatu
         </Text>
       )}
 
-      <View style={[styles.actions, isLarge && styles.actionsStacked]}>
+      <View style={[styles.actions, isStacked && styles.actionsStacked]}>
+        {isSimple ? primaryAction : null}
         <AppButton
-          title="Details"
+          title={isSimple ? 'View Ride Details' : 'Details'}
           variant="secondary"
-          size="sm"
+          size={buttonSize}
           onPress={onView}
-          style={isLarge ? styles.actionStacked : primaryAction ? styles.detailsButton : styles.flex}
+          style={isStacked ? styles.actionStacked : primaryAction ? styles.detailsButton : styles.flex}
         />
-        {primaryAction}
+        {isSimple ? null : primaryAction}
       </View>
     </Card>
   );
@@ -199,6 +214,9 @@ const styles = createThemedStyles(() => ({
     flex: 1,
     marginLeft: spacing.md,
     marginRight: spacing.sm,
+  },
+  nameColSimple: {
+    marginLeft: 0,
   },
   name: {
     ...typography.bodyStrong,

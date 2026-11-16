@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import { colors, createThemedStyles, radius, shadow, spacing } from '../theme/theme';
+import { colors, createThemedStyles, isHighContrast, radius, shadow, spacing } from '../theme/theme';
 
 // Pill-style segmented control, e.g. the Available Rides sort options.
 // options: [{ key, label }]. The selected segment is a raised white pill
@@ -53,6 +53,9 @@ const styles = createThemedStyles(() => ({
     backgroundColor: colors.surface,
     ...shadow.card,
     shadowOpacity: 0.08,
+    // High Contrast: a clear outline, since a white pill on a light gray
+    // track is hard to see.
+    ...(isHighContrast() ? { borderWidth: 2, borderColor: colors.text } : null),
   },
   pressed: {
     opacity: 0.6,

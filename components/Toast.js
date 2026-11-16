@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Pressable, Text, View } from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useReduceMotion } from '../lib/useAccessibility';
-import { colors, createThemedStyles, radius, shadow, spacing, typography } from '../theme/theme';
+import { colors, createThemedStyles, isHighContrast, radius, shadow, spacing, typography } from '../theme/theme';
 
 // How long a toast stays on screen before fading out.
 const VISIBLE_MS = 3000;
@@ -80,7 +80,8 @@ export default function Toast({ toast, onHide }) {
         accessibilityLiveRegion="polite"
         accessibilityLabel={announcement}
         accessibilityHint="Tap to dismiss"
-        style={[styles.box, { borderColor: `${t.color}55` }]}
+        // High Contrast: the full status color instead of a faint tint.
+        style={[styles.box, { borderColor: isHighContrast() ? t.color : `${t.color}55` }]}
       >
         <View style={[styles.iconChip, { backgroundColor: t.bg }]}>
           <Ionicons name={t.icon} size={20} color={t.color} />
@@ -106,7 +107,7 @@ const styles = createThemedStyles(() => ({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: isHighContrast() ? 2 : 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     ...shadow.raised,

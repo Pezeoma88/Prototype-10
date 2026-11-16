@@ -50,10 +50,11 @@ import {
   saveColorScheme,
   setIntroStatus,
 } from './lib/preferences';
-import { getAppTextScale } from './lib/accessibilitySettings';
-import { AccessibilityContext, useAccessibilityState } from './lib/useAccessibility';
+import { getAppTextScale, shouldUseHighContrast } from './lib/accessibilitySettings';
+import { AccessibilityContext, useAccessibilityState, useReduceMotion } from './lib/useAccessibility';
 import {
   applyColorScheme,
+  applyHighContrast,
   applyTextScale,
   colors,
   createThemedStyles,
@@ -89,9 +90,11 @@ import ConversationScreen from './screens/ConversationScreen';
 applyColorScheme(loadSavedColorScheme());
 
 // Likewise the saved Profile › Accessibility settings: the app's own text
-// size is built into the style sheets before the first screen is drawn.
+// size and High Contrast colors are built into the style sheets before the
+// first screen is drawn.
 const initialAccessibilitySettings = loadAccessibilitySettings();
 applyTextScale(getAppTextScale(initialAccessibilitySettings));
+applyHighContrast(shouldUseHighContrast(initialAccessibilitySettings));
 
 // Holds the accessibility settings and shares them (lib/useAccessibility.js).
 // The state lives here, above CarpoolBoard, so a text size change re-renders
@@ -271,6 +274,8 @@ function CarpoolBoard() {
 
   // Lets us scroll back to the top (Available Rides) after saving a ride.
   const scrollViewRef = useRef(null);
+  // Reduce Motion: jump back to the top instead of scrolling there.
+  const reduceMotion = useReduceMotion();
 
   // Riders who joined Looking for a Ride on this device without sending a
   // request yet: { id, name }. There's no Supabase table for the waiting
@@ -1080,7 +1085,7 @@ function CarpoolBoard() {
   // "Back to Home" on the Ride posted screen.
   function handleFinishPostedRide() {
     resetForm();
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    scrollViewRef.current?.scrollTo({ y: 0, animated: !reduceMotion });
   }
 
   // Shows (or hides, if it's already showing) the date or time wheel.

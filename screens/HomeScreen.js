@@ -27,7 +27,7 @@ import RiderCard from '../components/RiderCard';
 import RideFilterPanel from '../components/RideFilterPanel';
 import { RIDE_SORT_OPTIONS } from '../lib/format';
 import { DEFAULT_RIDE_FILTERS } from '../lib/rideFilters';
-import { useReduceMotion } from '../lib/useAccessibility';
+import { useReduceMotion, useSimplifiedInterface } from '../lib/useAccessibility';
 import { colors, createThemedStyles, gutter, radius, shadow, spacing, typography } from '../theme/theme';
 
 // "Good morning" / "Good afternoon" / "Good evening" from the device clock.
@@ -52,6 +52,12 @@ function getGreeting() {
 // Ride Details and the Offer a Ride / Need a Ride forms open in place of the
 // board (App passes them in as ready-made elements). State and Supabase
 // logic stay in App.js.
+//
+// Simplified Interface (Profile › Accessibility): the one-line mode blurb
+// and the Upcoming Rides subtitle are left out, and the two main actions
+// become full-width buttons with plain labels, one per line. Everything else
+// (mode switch, search, filters, sort, both lists, past rides) stays, and
+// every button does exactly what it does in the usual layout.
 //
 // This screen applies its own top safe-area inset (instead of App doing it)
 // so the KeyboardAvoidingView measures its position from the top of the
@@ -102,6 +108,9 @@ export default function HomeScreen({
   const [showPastRides, setShowPastRides] = useState(false);
   // Reduce Motion: jump to a section instead of scrolling there.
   const reduceMotion = useReduceMotion();
+  const isSimple = useSimplifiedInterface();
+  // The Rider "need a ride" button's label, which the empty states refer to.
+  const needRideLabel = isSimple ? 'Ask Drivers for a Ride' : 'Need a Ride?';
 
   // Driver/Rider UI follows the session's activeMode, not profiles.role.
   const isDriver = activeMode === 'driver';
@@ -177,56 +186,91 @@ export default function HomeScreen({
         <ModeToggle activeMode={activeMode} onChange={handleSetMode} style={styles.modeToggle} />
 
         {/* What this mode is for, in one line */}
-        <Text style={styles.heroText}>
-          {isDriver
-            ? 'Share your open seats with SMU students heading your way.'
-            : 'Find a seat on an upcoming ride, or let drivers know you need one.'}
-        </Text>
+        {isSimple ? null : (
+          <Text style={styles.heroText}>
+            {isDriver
+              ? 'Share your open seats with SMU students heading your way.'
+              : 'Find a seat on an upcoming ride, or let drivers know you need one.'}
+          </Text>
+        )}
 
         {/* Main actions for this role */}
-        <View style={styles.actionsRow}>
-          {isDriver ? (
-            <>
-              <ActionTile
-                icon="add-circle"
-                title="Offer a Ride"
-                subtitle="Share your open seats"
-                filled
-                onPress={handleAddDriver}
-              />
-              <ActionTile
-                icon="people"
-                title="Find Riders"
-                subtitle={`${riders.length} looking now`}
-                tint={colors.rider}
-                onPress={() => scrollToSection(ridersSectionRef, ridersSectionY)}
-              />
-            </>
-          ) : (
-            <>
-              <ActionTile
-                icon="search"
-                title="Find a Ride"
-                subtitle={`${drivers.length} upcoming`}
-                filled
-                onPress={() => scrollToSection(ridesSectionRef, ridesSectionY)}
-              />
-              <ActionTile
-                icon="hand-left"
-                title="Need a Ride?"
-                subtitle={isCurrentUserWaiting ? 'You’re on the list' : 'Tell drivers'}
-                tint={colors.rider}
-                onPress={handleNeedRide}
-              />
-            </>
-          )}
-        </View>
+        {isSimple ? (
+          <View style={styles.simpleActions}>
+            {isDriver ? (
+              <>
+                <AppButton title="Offer a Ride" icon="add-circle" onPress={handleAddDriver} />
+                <AppButton
+                  title="See Riders Looking for a Ride"
+                  icon="people"
+                  variant="secondary"
+                  onPress={() => scrollToSection(ridersSectionRef, ridersSectionY)}
+                />
+              </>
+            ) : (
+              <>
+                <AppButton
+                  title="Find a Ride"
+                  icon="search"
+                  onPress={() => scrollToSection(ridesSectionRef, ridesSectionY)}
+                />
+                <AppButton
+                  title={needRideLabel}
+                  icon="hand-left"
+                  variant="secondary"
+                  onPress={handleNeedRide}
+                />
+                {isCurrentUserWaiting ? (
+                  <Text style={styles.simpleStatus}>You’re on the Riders Looking for a Ride list.</Text>
+                ) : null}
+              </>
+            )}
+          </View>
+        ) : (
+          <View style={styles.actionsRow}>
+            {isDriver ? (
+              <>
+                <ActionTile
+                  icon="add-circle"
+                  title="Offer a Ride"
+                  subtitle="Share your open seats"
+                  filled
+                  onPress={handleAddDriver}
+                />
+                <ActionTile
+                  icon="people"
+                  title="Find Riders"
+                  subtitle={`${riders.length} looking now`}
+                  tint={colors.rider}
+                  onPress={() => scrollToSection(ridersSectionRef, ridersSectionY)}
+                />
+              </>
+            ) : (
+              <>
+                <ActionTile
+                  icon="search"
+                  title="Find a Ride"
+                  subtitle={`${drivers.length} upcoming`}
+                  filled
+                  onPress={() => scrollToSection(ridesSectionRef, ridesSectionY)}
+                />
+                <ActionTile
+                  icon="hand-left"
+                  title="Need a Ride?"
+                  subtitle={isCurrentUserWaiting ? 'You’re on the list' : 'Tell drivers'}
+                  tint={colors.rider}
+                  onPress={handleNeedRide}
+                />
+              </>
+            )}
+          </View>
+        )}
 
         {/* Available Rides: Driver offers */}
         <View ref={ridesSectionRef} onLayout={(event) => (ridesSectionY.current = event.nativeEvent.layout.y)}>
           <SectionHeader
             title="Upcoming Rides"
-            subtitle="Rides that haven’t departed yet"
+            subtitle={isSimple ? undefined : 'Rides that haven’t departed yet'}
             right={<Badge label={String(drivers.length)} tone="primary" />}
           />
 
@@ -276,7 +320,7 @@ export default function HomeScreen({
               message={
                 isDriver
                   ? 'Be the first to offer one, or pull down to refresh.'
-                  : 'Pull down to refresh, or tap Need a Ride? so drivers know you’re looking.'
+                  : `Pull down to refresh, or tap ${needRideLabel} so drivers know you’re looking.`
               }
               actionLabel="Refresh"
               onAction={handleRefresh}
@@ -324,7 +368,7 @@ export default function HomeScreen({
               message={
                 isDriver
                   ? 'When riders need transportation, they’ll show up here. Pull down to refresh.'
-                  : 'Tap Need a Ride? to let drivers know you’re looking.'
+                  : `Tap ${needRideLabel} to let drivers know you’re looking.`
               }
             />
           ) : (
@@ -560,6 +604,17 @@ const styles = createThemedStyles(() => ({
   },
   tileSubtitleFilled: {
     color: colors.textOnAccentMuted,
+  },
+
+  // Simplified Interface actions: full width, one per line.
+  simpleActions: {
+    gap: spacing.md,
+    marginBottom: spacing.xxl,
+  },
+  simpleStatus: {
+    ...typography.label,
+    color: colors.rider,
+    textAlign: 'center',
   },
 
   // Board sections

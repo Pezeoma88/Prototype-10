@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { colors, createThemedStyles, radius, roleColor, shadow, spacing, typography } from '../theme/theme';
+import { colors, createThemedStyles, isHighContrast, radius, roleColor, shadow, spacing, typography } from '../theme/theme';
 
 const MODES = [
   { key: 'driver', label: 'Driver', icon: 'car-sport', hint: 'Offer rides and manage requests for them' },
@@ -70,6 +70,9 @@ const styles = createThemedStyles(() => ({
     backgroundColor: colors.surface,
     ...shadow.card,
     shadowOpacity: 0.08,
+    // High Contrast: a clear outline, since a white pill on a light gray
+    // track is hard to see.
+    ...(isHighContrast() ? { borderWidth: 2, borderColor: colors.text } : null),
   },
   pressed: {
     opacity: 0.6,

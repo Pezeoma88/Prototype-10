@@ -4,6 +4,7 @@ import Card from './Card';
 import Avatar from './Avatar';
 import Badge from './Badge';
 import AppButton from './AppButton';
+import { useSimplifiedInterface } from '../lib/useAccessibility';
 import { useLargeText } from '../lib/useLargeText';
 import { colors, createThemedStyles, spacing, typography } from '../theme/theme';
 
@@ -14,26 +15,33 @@ import { colors, createThemedStyles, spacing, typography } from '../theme/theme'
 // Riders can't post a destination/time yet (that's the ride-needs phase), so
 // the card says so instead of inventing route details.
 // Long names wrap; with large text the badge moves under the name.
+// Simplified Interface (Profile › Accessibility): no avatar or extra
+// "looking for transportation" line; the name, the Needs a ride badge (under
+// the name), what hasn't been posted yet, and a larger Stop Looking button.
 export default function RiderCard({ rider, isSelf, onRemove }) {
-  const isLarge = useLargeText();
+  const isSimple = useSimplifiedInterface();
+  // The badge goes under the name with large text or the simplified layout.
+  const isStacked = useLargeText() || isSimple;
   const badge = <Badge label="Needs a ride" tone="rider" />;
   return (
     <Card style={styles.card}>
       <View style={styles.stripe} />
       <View style={styles.topRow}>
-        <Avatar name={rider.name} role="rider" uri={rider.avatarUrl} size={44} />
-        <View style={styles.nameCol}>
+        {isSimple ? null : <Avatar name={rider.name} role="rider" uri={rider.avatarUrl} size={44} />}
+        <View style={[styles.nameCol, isSimple && styles.nameColSimple]}>
           <Text style={styles.name}>
             {rider.name}
             {isSelf ? <Text style={styles.you}>  (You)</Text> : null}
           </Text>
-          <View style={styles.subRow}>
-            <Ionicons name="walk" size={13} color={colors.rider} />
-            <Text style={styles.subText}>Rider · looking for transportation</Text>
-          </View>
-          {isLarge ? <View style={styles.badgeStacked}>{badge}</View> : null}
+          {isSimple ? null : (
+            <View style={styles.subRow}>
+              <Ionicons name="walk" size={13} color={colors.rider} />
+              <Text style={styles.subText}>Rider · looking for transportation</Text>
+            </View>
+          )}
+          {isStacked ? <View style={styles.badgeStacked}>{badge}</View> : null}
         </View>
-        {isLarge ? null : badge}
+        {isStacked ? null : badge}
       </View>
 
       <View style={styles.needRow}>
@@ -46,7 +54,7 @@ export default function RiderCard({ rider, isSelf, onRemove }) {
           title="Stop Looking"
           icon="close-circle-outline"
           variant="destructive"
-          size="sm"
+          size={isSimple ? 'md' : 'sm'}
           onPress={onRemove}
           style={styles.removeButton}
         />
@@ -78,6 +86,9 @@ const styles = createThemedStyles(() => ({
     flex: 1,
     marginLeft: spacing.md,
     marginRight: spacing.sm,
+  },
+  nameColSimple: {
+    marginLeft: 0,
   },
   name: {
     ...typography.title,

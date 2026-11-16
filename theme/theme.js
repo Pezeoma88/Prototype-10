@@ -21,6 +21,13 @@ import { StyleSheet } from 'react-native';
 // values on the next render, and createThemedStyles rebuilds each file's
 // style sheet the first time it's used after a switch. App re-renders the
 // whole tree when the scheme changes, so nothing needs a restart.
+//
+// High Contrast (Prototype 10, Profile › Accessibility): each scheme has a
+// high-contrast twin (lightHighContrastColors / darkHighContrastColors)
+// with the same keys. applyHighContrast swaps it in the same way, so the
+// active palette is always scheme × contrast. Every text, border, and
+// status pair in the twins meets WCAG AA (4.5:1 for text, 3:1 for borders
+// and indicators); __tests__/high-contrast-test.js checks them.
 
 const lightColors = {
   // Surfaces
@@ -64,6 +71,10 @@ const lightColors = {
   muted: '#E5E7EB', // disabled button fill
   star: '#F59E0B', // rating stars
   mutedSoft: '#F1F5F9',
+
+  // Map: the suggested-meeting-spot diamond and the outline around it
+  suggested: '#B45309',
+  markerOutline: '#FFFFFF',
 };
 
 // Dark: deep navy backgrounds, slightly lighter navy cards, light text, and
@@ -111,15 +122,120 @@ const darkColors = {
   muted: '#2A3A5E',
   star: '#FBBF24',
   mutedSoft: '#1E2B4D',
+
+  // Map
+  suggested: '#FBBF24',
+  markerOutline: '#16213E',
+};
+
+// Light High Contrast: black text, mid-gray borders that read as edges
+// (4.8:1), and darker accents that keep white text above 4.5:1.
+const lightHighContrastColors = {
+  bg: '#FFFFFF',
+  surface: '#FFFFFF',
+  surfaceRaised: '#F3F4F6',
+  surfaceSunken: '#E5E7EB',
+  border: '#6B7280',
+  borderStrong: '#374151',
+
+  text: '#000000',
+  textMuted: '#374151',
+  textFaint: '#4B5563',
+  textOnAccent: '#FFFFFF',
+  textOnAccentMuted: '#FFFFFF',
+  onAccentSoft: 'rgba(255, 255, 255, 0.25)',
+
+  primary: '#1D4ED8',
+  primaryPressed: '#1E3A8A',
+  primarySoft: '#DBEAFE',
+  accent: '#1D4ED8',
+
+  driver: '#1D4ED8',
+  driverSoft: '#DBEAFE',
+  rider: '#0F766E',
+  riderSoft: '#CCFBF1',
+  riderPressed: '#115E59',
+  riderBorder: '#0F766E',
+
+  success: '#15803D',
+  successSoft: '#DCFCE7',
+  pending: '#92400E',
+  pendingSoft: '#FEF3C7',
+  danger: '#B91C1C',
+  dangerSoft: '#FEE2E2',
+  dangerPressed: '#FDD5D5',
+  muted: '#D1D5DB',
+  star: '#B45309',
+  mutedSoft: '#E5E7EB',
+
+  // Map: still amber, now with a black outline so it stands out on the tiles.
+  suggested: '#D97706',
+  markerOutline: '#000000',
+};
+
+// Dark High Contrast: black background, white text, and bright accents.
+// Text on an accent fill is BLACK here (textOnAccent), since a blue dark
+// enough for white text can't also stand out as text on black.
+const darkHighContrastColors = {
+  bg: '#000000',
+  surface: '#0A0F1C',
+  surfaceRaised: '#151D30',
+  surfaceSunken: '#000000',
+  border: '#8B9BB8',
+  borderStrong: '#C9D3E6',
+
+  text: '#FFFFFF',
+  textMuted: '#DCE3EE',
+  textFaint: '#B7C2D4',
+  textOnAccent: '#000000',
+  textOnAccentMuted: 'rgba(0, 0, 0, 0.85)',
+  onAccentSoft: 'rgba(0, 0, 0, 0.15)',
+
+  primary: '#7DB3FF',
+  primaryPressed: '#5A9BFF',
+  primarySoft: '#0F2550',
+  accent: '#7DB3FF',
+
+  driver: '#7DB3FF',
+  driverSoft: '#0F2550',
+  rider: '#5EEAD4',
+  riderSoft: '#06302C',
+  riderPressed: '#2DD4BF',
+  riderBorder: '#5EEAD4',
+
+  success: '#86EFAC',
+  successSoft: '#052E16',
+  pending: '#FCD34D',
+  pendingSoft: '#3A2A05',
+  danger: '#FCA5A5',
+  dangerSoft: '#3F0D12',
+  dangerPressed: '#5A1218',
+  muted: '#2B3550',
+  star: '#FCD34D',
+  mutedSoft: '#151D30',
+
+  // Map: amber with a white outline.
+  suggested: '#FBBF24',
+  markerOutline: '#FFFFFF',
 };
 
 const PALETTES = { light: lightColors, dark: darkColors };
+const HIGH_CONTRAST_PALETTES = { light: lightHighContrastColors, dark: darkHighContrastColors };
+
+// The palette for a scheme ('light' | 'dark') and contrast. A copy, so the
+// caller can't change the originals. Used by the tests to check contrast.
+export function getPalette(scheme, highContrast = false) {
+  const key = scheme === 'dark' ? 'dark' : 'light';
+  return { ...(highContrast ? HIGH_CONTRAST_PALETTES : PALETTES)[key] };
+}
 
 // The active palette. Its values change in place (see applyColorScheme), so
 // always read `colors.x` at render time rather than copying it at load.
 export const colors = { ...lightColors };
 
 let colorScheme = 'light';
+// Whether the High Contrast twin of the scheme is active.
+let highContrast = false;
 // Bumped on every color scheme or text size switch so themed style sheets
 // know to rebuild.
 let schemeVersion = 0;
@@ -147,8 +263,31 @@ export function applyColorScheme(scheme) {
     return;
   }
   colorScheme = next;
+  applyActivePalette();
+}
+
+// Whether High Contrast colors are active (Profile › Accessibility).
+export function isHighContrast() {
+  return highContrast;
+}
+
+// Turns High Contrast on or off for the current scheme. Like
+// applyColorScheme, callers re-render afterwards; App does this from its
+// accessibility settings state.
+export function applyHighContrast(enabled) {
+  const next = enabled === true;
+  if (next === highContrast) {
+    return;
+  }
+  highContrast = next;
+  applyActivePalette();
+}
+
+// Copies the palette for the current scheme and contrast into `colors` and
+// marks every themed style sheet for rebuilding.
+function applyActivePalette() {
   schemeVersion += 1;
-  Object.assign(colors, PALETTES[next]);
+  Object.assign(colors, (highContrast ? HIGH_CONTRAST_PALETTES : PALETTES)[colorScheme]);
   gradients.primary = [colors.primary, colors.primaryPressed];
 }
 

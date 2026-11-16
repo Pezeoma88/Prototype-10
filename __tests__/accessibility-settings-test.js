@@ -135,11 +135,15 @@ describe('accessibility settings model', () => {
     });
   });
 
-  test('Coming soon settings stay off even if a saved value says on', () => {
-    expect(COMING_SOON_SETTINGS).toEqual(['highContrast', 'simplifiedInterface']);
+  // Updated in Prototype 10: Simplified Interface and High Contrast both
+  // work now (see __tests__/simplified-interface-test.js and
+  // __tests__/high-contrast-test.js), so nothing is Coming soon and saved
+  // values are kept.
+  test('no setting is Coming soon; saved values are kept', () => {
+    expect(COMING_SOON_SETTINGS).toEqual([]);
     const settings = normalizeAccessibilitySettings({ enabled: true, highContrast: true, simplifiedInterface: true });
-    expect(settings.highContrast).toBe(false);
-    expect(settings.simplifiedInterface).toBe(false);
+    expect(settings.highContrast).toBe(true);
+    expect(settings.simplifiedInterface).toBe(true);
   });
 
   test('the app text size only applies while Accessibility Mode is on', () => {
@@ -380,7 +384,7 @@ describe('Profile › Accessibility', () => {
     await fireEvent.press(settingSwitch('Accessibility Mode'));
     expect(settingSwitch('Accessibility Mode')).toBeChecked();
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
-      'Accessibility Mode on. Text size and motion settings are shown below.'
+      'Accessibility Mode on. Text size, motion, contrast, and layout settings are shown below.'
     );
     expect(screen.getByRole('button', { name: 'Text size: Normal' })).toBeSelected();
     expect(settingSwitch('Reduce Motion')).not.toBeChecked();
@@ -435,24 +439,24 @@ describe('Profile › Accessibility', () => {
     ).toBeOnTheScreen();
   });
 
-  test('High Contrast and Simplified Interface are Coming soon and can’t be turned on', async () => {
+  // Updated in Prototype 10: nothing is Coming soon any more; High
+  // Contrast and Simplified Interface are ordinary switches.
+  test('no setting shows Coming soon; High Contrast and Simplified Interface can be turned on', async () => {
     await renderSection({ ...DEFAULT_ACCESSIBILITY_SETTINGS, enabled: true });
-    expect(screen.getAllByText('Coming soon')).toHaveLength(2);
-    for (const name of ['High Contrast, coming soon', 'Simplified Interface, coming soon']) {
+    expect(screen.queryByText('Coming soon')).toBeNull();
+    for (const name of ['High Contrast', 'Simplified Interface']) {
       const row = settingSwitch(name);
-      expect(row).toBeDisabled();
+      expect(row).toBeEnabled();
       expect(row).not.toBeChecked();
-      await fireEvent.press(row);
-      expect(settingSwitch(name)).not.toBeChecked();
     }
-    expect(mockStore.has(STORAGE_KEY)).toBe(false);
   });
 
   test('each setting is one screen-reader stop with a description', async () => {
     await renderSection({ ...DEFAULT_ACCESSIBILITY_SETTINGS, enabled: true });
     const row = settingSwitch('Reduce Motion');
+    // Updated in Prototype 10: the description now names what is reduced.
     expect(row.props.accessibilityHint).toBe(
-      'Turns off sliding, zooming, and shrinking animations in CarpoolBoard.'
+      'Map zooming and re-centering, scrolling, pop-up messages, and button press effects happen instantly instead of animating.'
     );
     // The drawn Switch is hidden from screen readers so it isn't a second stop.
     expect(screen.getAllByRole('switch')).toHaveLength(4);
